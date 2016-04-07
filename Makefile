@@ -8,10 +8,6 @@ CompilerWrapperSRC = src/CompilerClient.c
 
 all : indexServer compilerWrapper
 	mkdir -p socket
-	rm -f /usr/local/bin/compilerWrapper
-	rm -f /usr/local/bin/indexServer
-	ln -s `pwd`/bin/compilerWrapper  /usr/local/bin/compilerWrapper
-	ln -s `pwd`/bin/indexServer  /usr/local/bin/indexServer
 
 indexServer : $(IndexServerSRC) src/*.h
 	mkdir -p bin
@@ -21,6 +17,12 @@ compilerWrapper : $(CompilerWrapperSRC) src/*.h
 	mkdir -p bin
 	$(CC) -o bin/compilerWrapper $(CFLAG) $(SOCKET_NAME) $(CompilerWrapperSRC)
 
+install : 
+	rm -f /usr/local/bin/compilerWrapper
+	rm -f /usr/local/bin/indexServer
+	ln -s `pwd`/bin/compilerWrapper  /usr/local/bin/compilerWrapper
+	ln -s `pwd`/bin/indexServer  /usr/local/bin/indexServer
+	
 clean :
 	touch src/*.c src/*.h
 	rm -f -r bin

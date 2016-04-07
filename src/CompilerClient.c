@@ -31,7 +31,7 @@ int connectToServer()
         return -1;
     }
 
-    printf("Connect Successfully\n");
+    //printf("Connect Successfully\n");
 
 	return socket_fd;
 }
@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 	// Start transaction with server
 	for(int ind = 1; ind < argc; ind++)
 	{
-		printf("%s\n",argv[ind]);
+		printf("%s ",argv[ind]);
 
 	}
 
