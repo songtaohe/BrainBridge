@@ -10,8 +10,8 @@ all : indexServer compilerWrapper
 	mkdir -p socket
 	rm -f /usr/local/bin/compilerWrapper
 	rm -f /usr/local/bin/indexServer
-	ln -s `pwd`/../bin/compilerWrapper  /usr/local/bin/compilerWrapper
-	ln -s `pwd`/../bin/indexServer  /usr/local/bin/indexServer
+	ln -s `pwd`/bin/compilerWrapper  /usr/local/bin/compilerWrapper
+	ln -s `pwd`/bin/indexServer  /usr/local/bin/indexServer
 
 indexServer : $(IndexServerSRC) src/*.h
 	mkdir -p bin
