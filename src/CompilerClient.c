@@ -1,11 +1,14 @@
 #include "IndexServer.h"
+#include "Common.h"
+
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <string.h>
-
+#include <time.h>
 
 int connectToServer()
 {
@@ -41,6 +44,9 @@ int connectToServer()
 int main(int argc, char** argv)
 {
 	int socket_fd;
+	int state = 0;
+	char buf[1024];
+
 	// TODO	
 	socket_fd = connectToServer();
 
@@ -53,8 +59,48 @@ int main(int argc, char** argv)
 	// Start transaction with server
 	for(int ind = 1; ind < argc; ind++)
 	{
-		printf("%s ",argv[ind]);
+		int len;
+		if((len = strlen(argv[ind]))>4)
+		{
+			if(argv[ind][len-1] == 'p' &&
+				argv[ind][len-2] == 'p' &&
+				argv[ind][len-3] == 'c' &&
+				argv[ind][len-4] == '.')
+			{
+				// This is a cpp file, we are interested in it
+				//char * fullpath = 0;
+				int lendir = strlen(argv[1]);
+				int lenfile = len;
+				
+				//fullpath = (char*)malloc(sizeof(char)*(lendir+lenfile+1+1));
+				//sprintf(fullpath,"%s/%s",argc[1],argc[ind]);
+				//fullpath[lendir+lenfile+1] = 0;
+				//fullpath is the full path to the source code
 
+				struct MsgUniversal *mMsg;
+
+				int size = sizeof(struct MsgUniversal) + lendir + lenfile + 2;
+
+				mMsg = (struct MsgUniversal*)malloc(size);
+				memset((char*)mMsg,0,size);
+
+				mMsg->base.p1 = MSGTYPE_C2S_FILE_SOURCE;
+				sprintf(&(mMsg->data),"%s/%s",argv[1],argv[ind]);		
+				
+				write(socket_fd,(char*)mMsg, size);
+
+				//TODO wait for futher command
+
+				read(socket_fd, buf, 1024);
+				//sleep(10000);		
+				free(mMsg);
+			}	
+
+
+		}
+
+
+		if(ind!=1)	printf("%s ",argv[ind]);
 	}
 
 

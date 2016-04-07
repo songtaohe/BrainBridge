@@ -1,4 +1,3 @@
-#include "IndexServer.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -8,16 +7,34 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "Common.h"
+#include "IndexServer.h"
+
 void * TransactionThread(void * confd)
 {
 	int mfd = *((int*)confd);
-
-	printf("This is a new transaction\n");
+	char buf[1024];
+	struct MsgUniversal *mMsg = (struct MsgUniversal*)buf;
+	int len;
 	
 
+//	printf("This is a new transaction  %d \n",mfd);
+	
+	len = read(mfd, buf, 512);
+//	printf("Dead?\n");
+
+//	sprintf(buf,"SDFSDf");
+
+	if(len == 0) return NULL;
 
 
+	write(mfd,buf,10);
 
+//	printf("Dead?\n");
+	printf("Read %3d bytes, source is %s\n", len, (char*)(&(mMsg->data)));
+
+
+	close(mfd);
 	return NULL;
 }
 
@@ -47,6 +64,8 @@ int main(void)
 	address.sun_family = AF_UNIX;
 	snprintf(address.sun_path,strlen(INDEX_SERVER_NAME)+1,INDEX_SERVER_NAME);
 
+
+
 	if(bind(socket_fd, (struct sockaddr *)&address, sizeof(struct sockaddr_un)) != 0)
 	{
 		printf("bind failed\n");
@@ -68,13 +87,25 @@ int main(void)
 
 		if(*confd > -1)
 		{
+			char buf[128];
+			int len;
+
+			//printf("Try to read %d\n",*confd);
+			//len = read(*confd,buf,100);
+			//printf("Nothing read??? %d\n",len);
+
+
+
+
 			// Create a pthread
 			pthread_t * t = NULL;
 			int ret = 0;
+		
 			t  = (pthread_t*)malloc(sizeof(pthread_t)*1);
 			if(t!= NULL)
 			{
 				ret = pthread_create(t, NULL, TransactionThread, (void*)confd);
+				//TransactionThread((void*)confd);
 			}
 			
 
