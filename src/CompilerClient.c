@@ -238,24 +238,33 @@ int main(int argc, char** argv)
 
 
 			j = sprintf(src,"%s/%s",argv[1],argv[ind]);
-			dest = (char*)malloc(sizeof(char)*(j + strlen(TEMP_DIR) + 2));
+			//dest = (char*)malloc(sizeof(char)*(j + strlen(TEMP_DIR) + 2));
+			dest = (char*)malloc(sizeof(char)*(j + 8 + 2));
 
-			j = sprintf(dest,"%s%s",TEMP_DIR,src);
+			j = sprintf(dest,"%s_rewrite",src);
 	
 	//		printf("%d %d %s\n",j,strlen(TEMP_DIR),TEMP_DIR);
 
-			for(int i = strlen(TEMP_DIR); i<j; i++)
-			{
-				if(dest[i] == '/') dest[i] = '_';
-			}
+	//		for(int i = strlen(TEMP_DIR); i<j; i++)
+	//		{
+	//			if(dest[i] == '/') dest[i] = '_';
+	//		}
 
 			SendStringSync(socket_fd,dest,j);
 
 			// Key Function 
-			Rewrite(src,dest,IncludeDirStrList,IncludeDirType, IncludeDirCounter, DefineStrList,DefineCounter);
+			int ret = Rewrite(src,dest,IncludeDirStrList,IncludeDirType, IncludeDirCounter, DefineStrList,DefineCounter);
 
 			// User Dest 
-			printf("%s ",argv[ind]);
+			if(ret!= 0)
+			{
+				printf("%s ",argv[ind]);
+				
+			}
+			else
+			{
+				printf("%s ",dest);
+			}
 			continue;
 		}
 		printf("%s ",argv[ind]);

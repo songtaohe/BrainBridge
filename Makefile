@@ -1,7 +1,7 @@
 TMP_PREFIX = hst__
 
 CC = gcc
-CFLAG = -pthread
+CFLAG = -pthread -g
 #CPPFLAG = -pthread
 SOCKET_NAME = "-D INDEX_SERVER_NAME = \"$(shell pwd)/socket/index_server_socket\""
 CFLAG += "-DTEMP_DIR = \"$(shell pwd)/tmp/$(TMP_PREFIX)\""
@@ -12,7 +12,7 @@ IndexServerSRC = src/IndexServer.c
 CompilerWrapperSRC = src/CompilerClient.c
 
 CXX = g++
-CXXFLAGS = -fno-rtti -std=c++11
+CXXFLAGS = -fno-rtti -std=c++11 -g
 
 LLVM_SRC_PATH = /ssd/CodeProject/llvm
 LLVM_BUILD_PATH = /ssd/CodeProject/build

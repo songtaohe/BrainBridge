@@ -109,8 +109,8 @@ private:
 
 extern "C"
 {
-void Rewrite(char* src, char* dest, char** includeDirStrList,
-            char * includeDirType, int includeDirCount,
+int Rewrite(char* src, char* dest, char** includeDirStrList,
+            int * includeDirType, int includeDirCount,
             char ** defineStrList, int defineCount)
 {
 	CompilerInstance TheCompInst;
@@ -134,14 +134,34 @@ void Rewrite(char* src, char* dest, char** includeDirStrList,
 	TheCompInst.createASTContext();
 
 
-	const DirectoryEntry *ddir =  FileMgr.getDirectory("/usr/include", false);
-	DirectoryLookup hdir(ddir,clang::SrcMgr::C_System, false);
-	TheCompInst.getPreprocessor().getHeaderSearchInfo().AddSearchPath(hdir,true);
 
+	fprintf(stderr,"%d\n",includeDirCount);	
+	DirectoryEntry *ddir = NULL;
+
+	for(int i = 0; i < includeDirCount; i++)
+	{
+		fprintf(stderr,"%s\n",includeDirStrList[i]);
+
+		const DirectoryEntry* ddir =  FileMgr.getDirectory(includeDirStrList[i], false);
+		if(ddir!=NULL)
+		{
+			DirectoryLookup hdir(FileMgr.getDirectory(includeDirStrList[i], false),clang::SrcMgr::C_System, false);
+			TheCompInst.getPreprocessor().getHeaderSearchInfo().AddSearchPath(hdir,true);
+		}
+		else
+		{
+			fprintf(stderr,"DIR not found\n");
+		}
+	}
+
+	fprintf(stderr,"include loaded\n");
 
 	Rewriter TheRewriter;
 	TheRewriter.setSourceMgr(SourceMgr, TheCompInst.getLangOpts());
 
+
+//	fprintf(stderr,"Mark1 %s\n",src);
+	
   // Set the main file handled by the source manager to the input file.
 	const FileEntry *FileIn = FileMgr.getFile(src);
 	SourceMgr.setMainFileID(
@@ -149,29 +169,40 @@ void Rewrite(char* src, char* dest, char** includeDirStrList,
   	TheCompInst.getDiagnosticClient().BeginSourceFile(
 		TheCompInst.getLangOpts(), &TheCompInst.getPreprocessor());
 
+//	fprintf(stderr,"Mark1\n");
   // Create an AST consumer instance which is going to get called by
   // ParseAST.
 	MyASTConsumer TheConsumer(TheRewriter);
 
+//	fprintf(stderr,"Mark1\n");
   // Parse the file to AST, registering our consumer as the AST consumer.
 	ParseAST(TheCompInst.getPreprocessor(), &TheConsumer,
            TheCompInst.getASTContext());
 
+//	fprintf(stderr,"Mark1\n");
   // At this point the rewriter's buffer should be full with the rewritten
   // file contents.
 
 	std::ofstream mout(dest);
 
-
   	const RewriteBuffer *RewriteBuf =
       	TheRewriter.getRewriteBufferFor(SourceMgr.getMainFileID());
-	mout<< std::string(RewriteBuf->begin(), RewriteBuf->end());
 
-	  
+	fprintf(stderr,"RewriteBuffer? %p\n",RewriteBuf);
+	if(RewriteBuf != NULL) 
+	{
+		fprintf(stderr,"RewriteBuffer Size %d\n",RewriteBuf->size());
+		mout<< std::string(RewriteBuf->begin(), RewriteBuf->end());
+	}
+	else
+	{	  
+		fprintf(stderr,"Dump Failed, can not get rewrite buffer for %s\n",src);
+
+	}
     mout.close();
 
 
-
-
+	if(RewriteBuf == 0) return 1;
+	else return 0;
 }
 }
