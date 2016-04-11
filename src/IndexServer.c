@@ -18,8 +18,9 @@ void * TransactionThread(void * confd)
 	int len;
 	
 
-//	printf("This is a new transaction  %d \n",mfd);
-	
+	printf("This is a new transaction  %d \n",mfd);
+	while(1)
+	{	
 	len = read(mfd, buf, 512);
 //	printf("Dead?\n");
 
@@ -32,7 +33,7 @@ void * TransactionThread(void * confd)
 
 //	printf("Dead?\n");
 	printf("Read %3d bytes, source is %s\n", len, (char*)(&(mMsg->data)));
-
+	}
 
 	close(mfd);
 	return NULL;
