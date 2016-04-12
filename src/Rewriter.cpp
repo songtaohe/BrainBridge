@@ -39,6 +39,10 @@ public:
 
       TheRewriter.InsertText(Then->getLocStart(), "// the 'if' part\n", true,
                              true);
+	  TheRewriter.InsertText(Then->getLocStart(), "{ ALOGE(\"IF\\n\")",true,true);
+	  TheRewriter.InsertText(Then->getLocEnd(),"}",true,true);
+
+
 
       Stmt *Else = IfStatement->getElse();
       if (Else)
@@ -125,6 +129,12 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 	TargetInfo *TI =
       TargetInfo::CreateTargetInfo(TheCompInst.getDiagnostics(), TO);
 	TheCompInst.setTarget(TI);
+
+
+	TheCompInst.getDiagnostics().setIgnoreAllWarnings(true);
+	TheCompInst.getDiagnostics().setSuppressAllDiagnostics(true);
+
+
 
 	TheCompInst.createFileManager();
 	FileManager &FileMgr = TheCompInst.getFileManager();
