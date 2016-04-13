@@ -241,7 +241,7 @@ int main(int argc, char** argv)
 			//dest = (char*)malloc(sizeof(char)*(j + strlen(TEMP_DIR) + 2));
 			dest = (char*)malloc(sizeof(char)*(j + 8 + 2));
 
-			j = sprintf(dest,"%s_rewrite",src);
+			j = sprintf(dest,"%s.cpp",src);
 	
 	//		printf("%d %d %s\n",j,strlen(TEMP_DIR),TEMP_DIR);
 

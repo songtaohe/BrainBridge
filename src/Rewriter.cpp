@@ -20,6 +20,7 @@
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Rewrite/Frontend/Rewriters.h"
+//#include "clang/Rewrite/Rewriter.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -31,24 +32,68 @@ class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor> {
 public:
   MyASTVisitor(Rewriter &R) : TheRewriter(R) {}
 
+	void InsertBraceAndString(Stmt *s, char* S)
+	{
+		Rewriter::RewriteOptions rangeOpts;
+        rangeOpts.IncludeInsertsAtBeginOfRange = false;
+        unsigned int offset = TheRewriter.getRangeSize(SourceRange(s->getLocEnd(), s->getLocEnd()), rangeOpts);
+        char str[1024];
+		char str2[1024];
+		SourceLocation sloc = s->getLocEnd().getLocWithOffset(offset);
+		char t = *(TheRewriter.getSourceMgr().getCharacterData(sloc));
+        int nextSemicolon = 0;
+
+
+		if(offset == 0xffffffff) return;// This is a bad stmt, due to incomplete preprocessor... 
+
+        while(t == ' ' || t == '\n' || t == '\t')
+        {   
+            nextSemicolon ++;
+            t = *(TheRewriter.getSourceMgr().getCharacterData(sloc.getLocWithOffset(nextSemicolon)));
+        }
+
+        if(t == ';')
+        {
+            offset+=nextSemicolon;
+        }
+
+		sprintf(str2,"}/* %d %c */ ",nextSemicolon, t);
+
+		TheRewriter.InsertText(s->getLocEnd().getLocWithOffset(offset+1),str2,true,true);
+
+		sprintf(str,"{/* %d %x %c */ %s",nextSemicolon,offset,t,S);
+
+		TheRewriter.InsertText(s->getLocStart(), str,true,true);
+	}
+
+
   bool VisitStmt(Stmt *s) {
     // Only care about If statements.
     if (isa<IfStmt>(s)) {
       IfStmt *IfStatement = cast<IfStmt>(s);
       Stmt *Then = IfStatement->getThen();
 
-      TheRewriter.InsertText(Then->getLocStart(), "// the 'if' part\n", true,
-                             true);
-	  TheRewriter.InsertText(Then->getLocStart(), "{ ALOGE(\"IF\\n\")",true,true);
-	  TheRewriter.InsertText(Then->getLocEnd(),"}",true,true);
-
-
+	
+		InsertBraceAndString(Then,"ALOGE(\"THEN\");");
 
       Stmt *Else = IfStatement->getElse();
       if (Else)
-        TheRewriter.InsertText(Else->getLocStart(), "// the 'else' part\n",
-                               true, true);
+		{
+			InsertBraceAndString(Else,"ALOGE(\"ELSE\");");
+		}
     }
+	
+	if (isa<ForStmt>(s)){
+
+		ForStmt * ForStatement = cast<ForStmt>(s);
+		Stmt *Body = ForStatement->getBody();
+
+		InsertBraceAndString(Body,"ALOGE(\"For\");");
+
+
+	}
+
+
 
     return true;
   }
@@ -79,6 +124,12 @@ public:
       SSAfter << "\n// End function " << FuncName;
       ST = FuncBody->getLocEnd().getLocWithOffset(1);
       TheRewriter.InsertText(ST, SSAfter.str(), true, true);
+
+
+		 InsertBraceAndString(FuncBody,"ALOGE(\"FUNCTION\");");
+
+
+
     } 
     
     return true;
@@ -202,6 +253,7 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 	if(RewriteBuf != NULL) 
 	{
 		fprintf(stderr,"RewriteBuffer Size %d\n",RewriteBuf->size());
+		mout<< std::string("#include <cutils/log.h>\n");
 		mout<< std::string(RewriteBuf->begin(), RewriteBuf->end());
 	}
 	else
