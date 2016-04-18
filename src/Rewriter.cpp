@@ -34,6 +34,7 @@ public:
 
 	void InsertBraceAndString(Stmt *s, char* S)
 	{
+		return;
 		Rewriter::RewriteOptions rangeOpts;
         rangeOpts.IncludeInsertsAtBeginOfRange = false;
         unsigned int offset = TheRewriter.getRangeSize(SourceRange(s->getLocEnd(), s->getLocEnd()), rangeOpts);
@@ -57,11 +58,13 @@ public:
             offset+=nextSemicolon;
         }
 
-		sprintf(str2,"}/* %d %c */ ",nextSemicolon, t);
+		//sprintf(str2,"}/* %d %c */ ",nextSemicolon, t);
+		sprintf(str2,"}");
 
 		TheRewriter.InsertText(s->getLocEnd().getLocWithOffset(offset+1),str2,true,true);
 
-		sprintf(str,"{/* %d %x %c */ %s",nextSemicolon,offset,t,S);
+		//sprintf(str,"{/* %d %x %c */ %s",nextSemicolon,offset,t,S);
+		sprintf(str,"{ %s",S);
 
 		TheRewriter.InsertText(s->getLocStart(), str,true,true);
 	}
@@ -69,7 +72,13 @@ public:
 
   bool VisitStmt(Stmt *s) {
     // Only care about If statements.
-    if (isa<IfStmt>(s)) {
+	if(s->getLocEnd().isValid())
+	{
+		TheRewriter.InsertText(s->getLocEnd()," /* ^^ Stmt End ^^ */ ",true,true);    
+	}
+
+
+	if (isa<IfStmt>(s)) {
       IfStmt *IfStatement = cast<IfStmt>(s);
       Stmt *Then = IfStatement->getThen();
 
@@ -117,13 +126,13 @@ public:
       SSBefore << "// Begin function " << FuncName << " returning " << TypeStr
                << "\n";
       SourceLocation ST = f->getSourceRange().getBegin();
-      TheRewriter.InsertText(ST, SSBefore.str(), true, true);
+ //     TheRewriter.InsertText(ST, SSBefore.str(), true, true);
       
       // And after
       std::stringstream SSAfter;
       SSAfter << "\n// End function " << FuncName;
       ST = FuncBody->getLocEnd().getLocWithOffset(1);
-      TheRewriter.InsertText(ST, SSAfter.str(), true, true);
+//      TheRewriter.InsertText(ST, SSAfter.str(), true, true);
 
 
 		 InsertBraceAndString(FuncBody,"ALOGE(\"FUNCTION\");");
@@ -172,7 +181,14 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 	TheCompInst.createDiagnostics();
 
 	LangOptions &lo = TheCompInst.getLangOpts();
+	lo.CPlusPlus11 = 1;
 	lo.CPlusPlus = 1;
+	lo.Bool = 1;
+	lo.C11 =1;
+	lo.LineComment = 1;
+	lo.Half = 1;
+	lo.WChar = 1;
+
 
   // Initialize target info with the default triple for our platform.
 	auto TO = std::make_shared<TargetOptions>();
@@ -183,7 +199,7 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 
 
 	TheCompInst.getDiagnostics().setIgnoreAllWarnings(true);
-	TheCompInst.getDiagnostics().setSuppressAllDiagnostics(true);
+	//TheCompInst.getDiagnostics().setSuppressAllDiagnostics(true);
 
 
 
@@ -196,12 +212,12 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 
 
 
-	fprintf(stderr,"%d\n",includeDirCount);	
+	//fprintf(stderr,"%d\n",includeDirCount);	
 	DirectoryEntry *ddir = NULL;
 
 	for(int i = 0; i < includeDirCount; i++)
 	{
-		fprintf(stderr,"%s\n",includeDirStrList[i]);
+		//fprintf(stderr,"%s\n",includeDirStrList[i]);
 
 		const DirectoryEntry* ddir =  FileMgr.getDirectory(includeDirStrList[i], false);
 		if(ddir!=NULL)
@@ -211,20 +227,90 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 		}
 		else
 		{
-			fprintf(stderr,"DIR not found\n");
+			//fprintf(stderr,"DIR not found\n");
 		}
 	}
 
-	fprintf(stderr,"include loaded\n");
+	//fprintf(stderr,"include loaded\n");
 
 	Rewriter TheRewriter;
 	TheRewriter.setSourceMgr(SourceMgr, TheCompInst.getLangOpts());
 
 
 //	fprintf(stderr,"Mark1 %s\n",src);
+	//Add Macro
+
+
+	
+
+	std::ifstream msrc1(src);
+	dest[strlen(dest)-4] = 0;
+	std::ofstream msrc2(dest);
+
+	fprintf(stderr,"SRC %s\n",dest);
+
+    std::string line;
+	if (msrc1.is_open() && msrc2.is_open())
+  	{
+		for(int i = 0;i <defineCount;i++)
+		{
+			char buf[1024];
+			char *p1 = NULL;
+			char *p2 = NULL;
+
+
+			p1 = defineStrList[i];
+
+			int flag = 0;
+			for(int j = 0; j<i;j++)
+			{
+				if(strcmp(defineStrList[i],defineStrList[j]) == 0)
+				{
+					flag = 1;
+					break;
+				}
+			}
+
+			if(flag == 1) continue;
+
+
+			for(int j =0; j< strlen(defineStrList[i]); j++)
+			{
+				if(defineStrList[i][j] == '=')
+				{
+					defineStrList[i][j] = 0;
+					p2 = &(defineStrList[i][j])+1;
+					break;
+				}
+			}
+
+
+			if(p2!=NULL)
+				sprintf(buf,"#define %s %s\n",p1,p2);
+			else
+				sprintf(buf,"#define %s\n",p1);
+			
+			
+			msrc2 << buf;			
+
+		}
+
+
+
+    	while ( getline (msrc1,line) )
+    	{
+      		msrc2 << line << '\n';
+    	}
+    	msrc1.close();
+		msrc2.close();
+  	}
+
+
+
+
 	
   // Set the main file handled by the source manager to the input file.
-	const FileEntry *FileIn = FileMgr.getFile(src);
+	const FileEntry *FileIn = FileMgr.getFile(dest);
 	SourceMgr.setMainFileID(
     	SourceMgr.createFileID(FileIn, SourceLocation(), SrcMgr::C_User));
   	TheCompInst.getDiagnosticClient().BeginSourceFile(
@@ -244,6 +330,8 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
   // At this point the rewriter's buffer should be full with the rewritten
   // file contents.
 
+
+	dest[strlen(dest)] = '.';
 	std::ofstream mout(dest);
 
   	const RewriteBuffer *RewriteBuf =

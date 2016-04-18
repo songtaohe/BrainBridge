@@ -32,7 +32,7 @@ void * TransactionThread(void * confd)
 	write(mfd,buf,10);
 
 //	printf("Dead?\n");
-	printf("Read %3d bytes, source is %s\n", len, (char*)(&(mMsg->data)));
+	printf("Read %3d bytes ==> %s\n", len, (char*)(&(mMsg->data)));
 	}
 
 	close(mfd);

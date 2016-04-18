@@ -116,7 +116,10 @@ int main(int argc, char** argv)
 		int len;
 		len = strlen(argv[ind]);
 		
-		
+		SendStringSync(socket_fd, argv[ind], strlen(argv[ind]));
+	
+
+	
 		if(state > 0)
 		{
 
@@ -239,9 +242,9 @@ int main(int argc, char** argv)
 
 			j = sprintf(src,"%s/%s",argv[1],argv[ind]);
 			//dest = (char*)malloc(sizeof(char)*(j + strlen(TEMP_DIR) + 2));
-			dest = (char*)malloc(sizeof(char)*(j + 8 + 2));
+			dest = (char*)malloc(sizeof(char)*(j + 8 + 2 + 4));
 
-			j = sprintf(dest,"%s.cpp",src);
+			j = sprintf(dest,"%s.cpp.cpp",src);
 	
 	//		printf("%d %d %s\n",j,strlen(TEMP_DIR),TEMP_DIR);
 
