@@ -74,7 +74,7 @@ public:
     // Only care about If statements.
 	if(s->getLocEnd().isValid())
 	{
-		TheRewriter.InsertText(s->getLocEnd()," /* ^^ Stmt End ^^ */ ",true,true);    
+//		TheRewriter.InsertText(s->getLocEnd()," /* ^^ Stmt End ^^ */ ",true,true);    
 	}
 
 
@@ -112,7 +112,33 @@ public:
     // Only function definitions (with bodies), not declarations.
     if (f->hasBody()) {
       Stmt *FuncBody = f->getBody();
-      
+  
+		int counter = 0;
+		if(isa<CompoundStmt>(FuncBody))
+		{
+			//printf("It is a compoundstmt\n");
+			CompoundStmt *cs = cast<CompoundStmt>(FuncBody);
+
+			for(Stmt** locals = cs->body_begin(); locals < cs->body_end(); locals++)
+			{
+				//printf("Locals %p \n",locals);
+				if(locals!=NULL && (*locals) != NULL)
+				{
+				//printf("*Locals %p \n",*locals);
+					if((*locals)->getLocStart().isValid())
+					{
+						char buf[1024];
+						sprintf(buf," /* Stmt %d */ ",++counter);
+						TheRewriter.InsertText((*locals)->getLocStart(),buf,true,true);
+					}			
+				}
+			}
+		}
+
+
+
+
+    
       // Type name as string
       QualType QT = f->getReturnType();
       std::string TypeStr = QT.getAsString();
@@ -135,7 +161,7 @@ public:
 //      TheRewriter.InsertText(ST, SSAfter.str(), true, true);
 
 
-		 InsertBraceAndString(FuncBody,"ALOGE(\"FUNCTION\");");
+//		 InsertBraceAndString(FuncBody,"ALOGE(\"FUNCTION\");");
 
 
 
