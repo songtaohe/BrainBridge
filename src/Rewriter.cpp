@@ -188,11 +188,23 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 	lo.LineComment = 1;
 	lo.Half = 1;
 	lo.WChar = 1;
-
+	lo.ImplicitInt = 0;
 
   // Initialize target info with the default triple for our platform.
 	auto TO = std::make_shared<TargetOptions>();
-	TO->Triple = llvm::sys::getDefaultTargetTriple();
+	//TO->Triple = llvm::sys::getDefaultTargetTriple();
+		
+//	printf("Triple %s \n", llvm::sys::getDefaultTargetTriple().c_str());
+//	printf("Triple %s \n", TO->CPU.c_str());
+//	printf("Triple %s \n", TO->FPMath.c_str());
+//	printf("Triple %s \n", TO->ABI.c_str());
+//	printf("Triple %s \n", TO->EABIVersion.c_str());
+	
+
+	TO->Triple = std::string("armv7-unknow-linux-androideabi");
+//	TO->CPU = std::string("armv7-a");
+		
+
 	TargetInfo *TI =
       TargetInfo::CreateTargetInfo(TheCompInst.getDiagnostics(), TO);
 	TheCompInst.setTarget(TI);
@@ -211,11 +223,18 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 	TheCompInst.createASTContext();
 
 
+	
+TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.getPreprocessor().getIdentifierTable(),
+						   TheCompInst.getLangOpts());
+
+
+
 
 	//fprintf(stderr,"%d\n",includeDirCount);	
 	DirectoryEntry *ddir = NULL;
 
-	for(int i = 0; i < includeDirCount; i++)
+	//for(int i = 0; i < includeDirCount; i++)
+	for(int i = includeDirCount-1; i >= 0; i--)
 	{
 		//fprintf(stderr,"%s\n",includeDirStrList[i]);
 
@@ -291,9 +310,11 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 				sprintf(buf,"#define %s\n",p1);
 			
 			
-			msrc2 << buf;			
-
+			msrc2 << buf;		
 		}
+
+
+		msrc2 << std::string("#include \"/ssd/nexus6_lp/build/core/combo/include/arch/linux-arm/AndroidConfig.h\"");
 
 
 
