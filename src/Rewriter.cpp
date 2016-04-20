@@ -87,8 +87,20 @@ public:
 			MemberExpr * me = cast<MemberExpr>(s);	
 			//ParameterList.push_back(me->getMemberNameInfo().getAsString());
 
-
 		}
+
+		if (isa<ReturnStmt>(s))
+		{
+			IsValid = false;
+		}
+
+		if (isa<CXXThisExpr>(s))
+		{
+			IsValid = false;
+		}
+
+
+
 
 		return true;
 	}
@@ -96,6 +108,7 @@ public:
 	void cleanUp()
 	{
 		ParameterList.clear();
+		IsValid = true;
 	}
 
 	void setLocationRange(SourceLocation s, SourceLocation e)
@@ -116,9 +129,9 @@ public:
 
 
 
-class ASTVistorModulization : public RecursiveASTVisitor<ASTVistorModulization> {
+class ASTVistorModulizer : public RecursiveASTVisitor<ASTVistorModulizer> {
 public:
-	ASTVistorModulization(SourceManager &S, SourceLocation loc) : IsValid(true), TheSourceMgr(S), locDump(loc) {
+	ASTVistorModulizer(SourceManager &S, Rewriter &R, SourceLocation loc) : IsValid(true), TheSourceMgr(S), TheRewriter(R), locDump(loc) {
 		ParameterList.clear();
 	}
 
@@ -170,13 +183,19 @@ public:
 						{
 							isValid = false;
 							// Reclusive 
-							ASTVistorModulization mModulizer(TheSourceMgr, locDump);
+							ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump);
 							mModulizer.TraverseStmt((*locals));			
 		
 						}
 
 					}
 	
+
+					if(isValid == true && locals == (cs->body_end() -1))
+					{
+						isValid = false;
+					}
+
 					if(isValid == false)
 					{
 						if(ModuleStart == NULL) // Range Empty
@@ -185,11 +204,20 @@ public:
 
 						}
 						else
-						{
+						{				
 							//TODO  Generate Module
 							// Parameter List from mChecker
 							// Code dumped from moduleStart to moduleEnd
 
+							std::stringstream str;
+
+							str << " /* ";
+							str << "Module " << (*ModuleStart)->getLocStart().printToString(TheSourceMgr);
+							str << " to " << (*ModuleEnd)->getLocEnd().printToString(TheSourceMgr);
+							str << " */ \n" ;
+
+							
+							TheRewriter.InsertText(locDump, str.str(),true,true);
 
 
 						}		
@@ -201,17 +229,18 @@ public:
    				
                 }
             }
-				
+			return false;	// Depth 1 only
 		}
 
 
 
-		return false;   // Depth 1
+		return true;   
 	}
 
 
 	std::vector<std::string> ParameterList;
 	SourceManager &TheSourceMgr;
+	Rewriter &TheRewriter;
 	SourceLocation locDump;
 
 };
@@ -326,6 +355,14 @@ public:
   		
 		if(isa<CompoundStmt>(FuncBody))
 		{
+			//Start the modulizer !!! //TODO
+
+			ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, f->getSourceRange().getBegin());
+			mModulizer.TraverseStmt(FuncBody); 
+
+
+
+
 			
 	
 		}
@@ -422,7 +459,7 @@ public:
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
      
-		if(strcmp("postFramebuffer",FuncName.c_str()) == 0)
+		if(strcmp("createDisplay",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
