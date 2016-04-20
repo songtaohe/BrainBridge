@@ -26,17 +26,99 @@
 
 using namespace clang;
 
+
+class ASTVistorGenFuncPara : public RecursiveASTVisitor<ASTVistorGenFuncPara> {
+public:
+	ASTVistorGenFuncPara(SourceManager &S, SourceLocation s, SourceLocation e) : IsValid(true), TheSourceMgr(S), lStart(s), lEnd(e) {
+		ParameterList.clear();
+	}
+
+	bool IsValid;
+
+	bool VisitStmt(Stmt *s) {
+		//printf("???");
+
+		if (isa<DeclRefExpr>(s))
+    	{
+        	DeclRefExpr * dre = cast<DeclRefExpr>(s);
+			ValueDecl * valueDecl = dre->getDecl();
+			//if(isa<VarDecl>(valueDecl) || isa<FunctionDecl>(valueDecl) )
+			if(isa<VarDecl>(valueDecl) )
+			{
+				//VarDecl * varDecl = cast<VarDecl>(valueDecl);
+				QualType t = valueDecl->getType();		
+	
+				SourceLocation declLoc = valueDecl->getLocStart();
+
+				BeforeThanCompare<SourceLocation> isBefore(TheSourceMgr);
+			
+				bool s_before_d = isBefore(lStart,declLoc);
+				bool d_before_e = isBefore(declLoc,lEnd);
+				bool isLocDecl = s_before_d && d_before_e;
+				
+				if(!isLocDecl)
+				{
+					//ParameterList.push_back(varDecl->getLocStart().printToString(TheSourceMgr));
+					std::string mType = t.getAsString();
+					std::string mName = dre->getNameInfo().getAsString();
+					bool existed = false;
+					for(int i = 1; i < ParameterList.size();i+=2)
+					{
+						if(ParameterList.at(i) == mName) 
+						{
+							existed = true;
+							break;
+						}
+					}
+
+					if(existed == false)
+					{
+						ParameterList.push_back(t.getAsString());
+						ParameterList.push_back(dre->getNameInfo().getAsString());
+					}
+				}
+			}						
+			// printf("???\n");
+		}
+
+		if (isa<MemberExpr>(s))
+		{
+			MemberExpr * me = cast<MemberExpr>(s);	
+			//ParameterList.push_back(me->getMemberNameInfo().getAsString());
+
+
+		}
+
+		return true;
+	}
+
+
+	std::vector<std::string> ParameterList;
+	SourceManager &TheSourceMgr;
+	SourceLocation lStart;
+	SourceLocation lEnd;
+
+
+};
+
+
+
+
+
+
+
+
 // By implementing RecursiveASTVisitor, we can specify which AST nodes
 // we're interested in by overriding relevant methods.
 class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor> {
 public:
-  MyASTVisitor(Rewriter &R) : TheRewriter(R) {}
+  MyASTVisitor(Rewriter &R, SourceManager &S, ASTContext &C) : TheRewriter(R), TheSourceMgr(S), TheASTContext(C)  {}
 
 	void InsertBraceAndString(Stmt *s, char* S)
 	{
 		return;
 		Rewriter::RewriteOptions rangeOpts;
-        rangeOpts.IncludeInsertsAtBeginOfRange = false;
+        rangeOpts.IncludeInsertsAtBeginOfRange = false; 
         unsigned int offset = TheRewriter.getRangeSize(SourceRange(s->getLocEnd(), s->getLocEnd()), rangeOpts);
         char str[1024];
 		char str2[1024];
@@ -76,6 +158,23 @@ public:
 	{
 //		TheRewriter.InsertText(s->getLocEnd()," /* ^^ Stmt End ^^ */ ",true,true);    
 	}
+
+
+	if (isa<DeclRefExpr>(s))
+	{
+		DeclRefExpr * dre = cast<DeclRefExpr>(s);
+		std::string name = dre->getNameInfo().getAsString();
+
+		if(dre->getLocStart().isValid())
+		{
+			char buf[1024];
+			sprintf(buf," /* %s */ ",name.c_str());
+			TheRewriter.InsertText(dre->getLocStart(),buf,true,true);
+
+		}		
+
+	}
+
 
 
 	if (isa<IfStmt>(s)) {
@@ -136,6 +235,60 @@ public:
 		}
 
 
+		// Generate Parameter List
+		
+		bool isCXXFunc = false;
+
+		if(isa<CXXMethodDecl>(f))
+		{
+			// We need replace 'this' 
+			//isCXXFunc = true;			
+		}
+
+
+
+		if(FuncBody->getLocStart().isValid() && FuncBody->getLocEnd().isValid())
+		{
+
+		ASTVistorGenFuncPara mGenFuncPara(TheSourceMgr,FuncBody->getLocStart(), FuncBody->getLocEnd());
+		mGenFuncPara.TraverseStmt(FuncBody);
+		char buf[1024*64];
+		char * lp = buf;
+
+		lp = lp + sprintf(lp, " /* (");	
+		
+		if(isCXXFunc == true)
+		{
+			QualType t = (cast<CXXMethodDecl>(f))->getThisType(TheASTContext);  // This Function is dangerours for static function
+			if(mGenFuncPara.ParameterList.size() == 0)
+			{
+				lp = lp + sprintf(lp," %s myTHIS ",t.getAsString());			
+			}
+			else
+			{
+				lp = lp + sprintf(lp," %s myTHIS , ",t.getAsString());			
+			}
+		}
+
+			
+		for(int i = 0;i<mGenFuncPara.ParameterList.size(); i+=2)
+		{
+			lp = lp + sprintf(lp, " %s ",mGenFuncPara.ParameterList.at(i).c_str());		
+			if(i != mGenFuncPara.ParameterList.size() -2)		
+				lp = lp + sprintf(lp, " %s, ",mGenFuncPara.ParameterList.at(i+1).c_str());
+			else 				
+				lp = lp + sprintf(lp, " %s ",mGenFuncPara.ParameterList.at(i+1).c_str());
+		}
+		lp = lp + sprintf(lp, " )*/ ");				
+		
+		if(FuncBody->getLocStart().isValid())
+		{
+			TheRewriter.InsertText(FuncBody->getLocStart(),buf,true,true);
+		}
+
+		}
+
+
 
 
     
@@ -146,13 +299,20 @@ public:
       // Function name
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
-      
+     
+		if(strcmp("postFramebuffer",FuncName.c_str()) == 0)
+		{
+			f->dumpColor();	
+		}
+
+
+ 
       // Add comment before
       std::stringstream SSBefore;
       SSBefore << "// Begin function " << FuncName << " returning " << TypeStr
                << "\n";
       SourceLocation ST = f->getSourceRange().getBegin();
- //     TheRewriter.InsertText(ST, SSBefore.str(), true, true);
+      TheRewriter.InsertText(ST, SSBefore.str(), true, true);
       
       // And after
       std::stringstream SSAfter;
@@ -171,12 +331,15 @@ public:
   } 
   
 private:
-  Rewriter &TheRewriter;
+	Rewriter &TheRewriter;
+	SourceManager &TheSourceMgr;
+	ASTContext &TheASTContext;
+
 };
 
 class MyASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R) : Visitor(R) {}
+  MyASTConsumer(Rewriter &R,SourceManager &S, ASTContext &C) : Visitor(R,S,C) {}
 
   // Override the method that gets called for each parsed top-level
   // declaration.
@@ -184,6 +347,7 @@ public:
     for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b)
       // Traverse the declaration using our AST visitor.
       Visitor.TraverseDecl(*b);
+	  //(*b)->dumpColor();
     return true;
   }
 
@@ -366,7 +530,7 @@ TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.ge
 //	fprintf(stderr,"Mark1\n");
   // Create an AST consumer instance which is going to get called by
   // ParseAST.
-	MyASTConsumer TheConsumer(TheRewriter);
+	MyASTConsumer TheConsumer(TheRewriter, SourceMgr, TheCompInst.getASTContext());
 
 //	fprintf(stderr,"Mark1\n");
   // Parse the file to AST, registering our consumer as the AST consumer.
