@@ -27,6 +27,7 @@
 using namespace clang;
 
 
+
 class ASTVistorGenFuncPara : public RecursiveASTVisitor<ASTVistorGenFuncPara> {
 public:
 	ASTVistorGenFuncPara(SourceManager &S, SourceLocation s, SourceLocation e) : IsValid(true), TheSourceMgr(S), lStart(s), lEnd(e) {
@@ -92,6 +93,18 @@ public:
 		return true;
 	}
 
+	void cleanUp()
+	{
+		ParameterList.clear();
+	}
+
+	void setLocationRange(SourceLocation s, SourceLocation e)
+	{
+		lStart = s;
+		lEnd = e;
+	}
+
+
 
 	std::vector<std::string> ParameterList;
 	SourceManager &TheSourceMgr;
@@ -103,6 +116,105 @@ public:
 
 
 
+class ASTVistorModulization : public RecursiveASTVisitor<ASTVistorModulization> {
+public:
+	ASTVistorModulization(SourceManager &S, SourceLocation loc) : IsValid(true), TheSourceMgr(S), locDump(loc) {
+		ParameterList.clear();
+	}
+
+	bool IsValid;
+
+	bool VisitStmt(Stmt *s) {
+		//printf("???");
+		if (isa<CompoundStmt>(s))
+		{
+			CompoundStmt *cs = cast<CompoundStmt>(s);
+
+			Stmt** ModuleStart = NULL;
+			Stmt** ModuleEnd = NULL;
+
+			
+			ASTVistorGenFuncPara mChecker(TheSourceMgr,s->getLocStart(), s->getLocEnd());
+	        
+			//mChecker.TraverseStmt(FuncBody);
+
+
+            for(Stmt** locals = cs->body_begin(); locals < cs->body_end(); locals++)
+            {
+                //printf("Locals %p \n",locals);
+                if(locals!=NULL && (*locals) != NULL)
+                {
+					bool isValid = true;
+
+					if(isa<DeclStmt>(*locals))
+					{
+						isValid = false;
+					}
+					else
+					{
+						mChecker.setLocationRange((*locals)->getLocStart(),(*locals)->getLocEnd());
+						mChecker.TraverseStmt((*locals));
+
+						if(mChecker.IsValid == true)
+						{
+							isValid = true;
+							if(ModuleStart == NULL)
+							{
+								ModuleStart = locals;
+							}	
+
+							ModuleEnd = locals;
+
+						}
+						else
+						{
+							isValid = false;
+							// Reclusive 
+							ASTVistorModulization mModulizer(TheSourceMgr, locDump);
+							mModulizer.TraverseStmt((*locals));			
+		
+						}
+
+					}
+	
+					if(isValid == false)
+					{
+						if(ModuleStart == NULL) // Range Empty
+						{
+							// do nothing
+
+						}
+						else
+						{
+							//TODO  Generate Module
+							// Parameter List from mChecker
+							// Code dumped from moduleStart to moduleEnd
+
+
+
+						}		
+						ModuleStart = NULL;
+						ModuleEnd = NULL;
+						mChecker.cleanUp();
+
+					}				
+   				
+                }
+            }
+				
+		}
+
+
+
+		return false;   // Depth 1
+	}
+
+
+	std::vector<std::string> ParameterList;
+	SourceManager &TheSourceMgr;
+	SourceLocation locDump;
+
+};
 
 
 
@@ -211,7 +323,16 @@ public:
     // Only function definitions (with bodies), not declarations.
     if (f->hasBody()) {
       Stmt *FuncBody = f->getBody();
-  
+  		
+		if(isa<CompoundStmt>(FuncBody))
+		{
+			
+	
+		}
+
+
+
+
 		int counter = 0;
 		if(isa<CompoundStmt>(FuncBody))
 		{
@@ -252,6 +373,7 @@ public:
 
 		ASTVistorGenFuncPara mGenFuncPara(TheSourceMgr,FuncBody->getLocStart(), FuncBody->getLocEnd());
 		mGenFuncPara.TraverseStmt(FuncBody);
+		
 		char buf[1024*64];
 		char * lp = buf;
 
