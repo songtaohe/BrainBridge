@@ -77,18 +77,21 @@ public:
 
 					if(existed == false)
 					{
-						//std::string s;
-						//llvm::raw_string_ostream mStr(s);
+						std::string s;
+						llvm::raw_string_ostream mStr(s);
 						//LangOptions lo;
-						//PrintingPolicy pp(TheLangOpts);
-						//Twine mT("XXX");
-						//t.print(mStr,pp,mT,0);
+						PrintingPolicy pp(TheLangOpts);
+						Twine mT("(&"+dre->getNameInfo().getAsString()+")");
+						t.print(mStr,pp,mT,0);
+
+						//TypePrinter mTypePrinter(TheLangOpts);
+						//mTypePrinter.printBefore(t,mStr);
 
 						
 						
 
-						ParameterList.push_back(t.getAsString());
-						//ParameterList.push_back(s);
+						//ParameterList.push_back(t.getAsString());
+						ParameterList.push_back(mStr.str());
 						ParameterList.push_back(dre->getNameInfo().getAsString());
 					}
 				}
@@ -253,7 +256,8 @@ public:
 							// Paramter List
 							for(int j = 0; j < mChecker.ParameterList.size();j+=2)
 							{
-								str << mChecker.ParameterList.at(j) << " &" << mChecker.ParameterList.at(j+1);
+								//str << mChecker.ParameterList.at(j) << " &" << mChecker.ParameterList.at(j+1);
+								str << mChecker.ParameterList.at(j) ;
 								if(j+2 != mChecker.ParameterList.size()) str << ",";
 							}
 
@@ -531,7 +535,7 @@ public:
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
      
-		if(strcmp("destroyDisplay",FuncName.c_str()) == 0)
+		if(strcmp("getDisplayConfigs",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
@@ -554,7 +558,7 @@ public:
 
 //		 InsertBraceAndString(FuncBody,"ALOGE(\"FUNCTION\");");
 
-
+	  //return false;
 
     } 
     
