@@ -45,6 +45,13 @@ public:
     	{
         	DeclRefExpr * dre = cast<DeclRefExpr>(s);
 			ValueDecl * valueDecl = dre->getDecl();
+
+			if(isa<CXXMethodDecl>(valueDecl))
+			{
+				IsValid = false;
+			}
+
+
 			//if(isa<VarDecl>(valueDecl) || isa<FunctionDecl>(valueDecl) )
 			if(isa<VarDecl>(valueDecl) )
 			{
@@ -52,6 +59,12 @@ public:
 				QualType t = valueDecl->getType();		
 				t = t.getNonReferenceType();
 	
+				std::string  typestr = t.getAsString(); 
+
+				int cnt = std::count(typestr.begin(), typestr.end(),':'); 
+				if(cnt > 2) IsValid = false;
+
+
 				SourceLocation declLoc = valueDecl->getLocStart();
 
 				BeforeThanCompare<SourceLocation> isBefore(TheSourceMgr);
@@ -59,14 +72,18 @@ public:
 				bool s_before_d = isBefore(lStart,declLoc);
 				bool d_before_e = isBefore(declLoc,lEnd);
 				bool isLocDecl = s_before_d && d_before_e;
+		
 				
+
+
+		
 				if(!isLocDecl)
 				{
 					//ParameterList.push_back(varDecl->getLocStart().printToString(TheSourceMgr));
 					std::string mType = t.getAsString();
 					std::string mName = dre->getNameInfo().getAsString();
 					bool existed = false;
-					for(int i = 1; i < ParameterList.size();i+=2)
+					for(int i = 1; i < ParameterList.size();i+= 2)
 					{
 						if(ParameterList.at(i) == mName) 
 						{
@@ -81,15 +98,17 @@ public:
 						llvm::raw_string_ostream mStr(s);
 						//LangOptions lo;
 						PrintingPolicy pp(TheLangOpts);
-						Twine mT("(&"+dre->getNameInfo().getAsString()+")");
+						//Twine mT("(&"+dre->getNameInfo().getAsString()+")");
+						std::string mTypeStr = dre->getNameInfo().getAsString();
+						std::string mRefTypeStr = "(&" + mTypeStr + ")";				
+						Twine mT(mRefTypeStr);
 						t.print(mStr,pp,mT,0);
-
+	
 						//TypePrinter mTypePrinter(TheLangOpts);
 						//mTypePrinter.printBefore(t,mStr);
 
-						
-						
-
+						//fprintf(stderr,"%s\n",mStr.str().c_str());
+					
 						//ParameterList.push_back(t.getAsString());
 						ParameterList.push_back(mStr.str());
 						ParameterList.push_back(dre->getNameInfo().getAsString());
@@ -129,7 +148,20 @@ public:
 			IsValid = false;
 		}
 	
+		if (isa<CaseStmt>(s))
+		{
+			IsValid = false;
+		}
 
+		if (isa<GotoStmt>(s))
+		{
+			IsValid = false;
+		}
+
+		if (isa<DefaultStmt>(s))
+		{
+			IsValid = false;
+		}
 
 
 
@@ -181,7 +213,8 @@ public:
 
 			
 			ASTVistorGenFuncPara mChecker(TheSourceMgr,TheRewriter.getLangOpts(), s->getLocStart(), s->getLocEnd());
-	        
+	       	mChecker.cleanUp();
+ 
 			//mChecker.TraverseStmt(FuncBody);
 
 
@@ -196,10 +229,15 @@ public:
 					if(isa<DeclStmt>(*locals))
 					{
 						isValid = false;
+						//ModuleStart = NULL;
+                        //ModuleEnd = NULL;
+                        //mChecker.cleanUp();
 					}
 					else
 					{
 						mChecker.setLocationRange((*locals)->getLocStart(),(*locals)->getLocEnd());
+
+						std::vector<std::string> backupList = mChecker.ParameterList;  // There was a horrible bug! 
 						mChecker.TraverseStmt((*locals));
 
 						if(mChecker.IsValid == true)
@@ -215,6 +253,7 @@ public:
 						}
 						else
 						{
+							mChecker.ParameterList = backupList;
 							isValid = false;
 							// Reclusive 
 							ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump);
@@ -236,7 +275,7 @@ public:
 						if(ModuleStart == NULL) // Range Empty
 						{
 							// do nothing
-
+							
 						}
 						else
 						{				
@@ -298,7 +337,6 @@ public:
 						ModuleStart = NULL;
 						ModuleEnd = NULL;
 						mChecker.cleanUp();
-
 					}				
    				
                 }
@@ -318,11 +356,11 @@ public:
 	SourceLocation locDump;
 
 	static int functionCounter;
-
+	static int totalModulizedLine;
 };
 
 int ASTVistorModulizer::functionCounter = 0;
-
+int ASTVistorModulizer::totalModulizedLine = 0;
 
 
 // By implementing RecursiveASTVisitor, we can specify which AST nodes
@@ -491,7 +529,7 @@ public:
 		char * lp = buf;
 
 		lp = lp + sprintf(lp, " /* (");	
-		
+	/*	
 		if(isCXXFunc == true)
 		{
 			QualType t = (cast<CXXMethodDecl>(f))->getThisType(TheASTContext);  // This Function is dangerours for static function
@@ -514,6 +552,7 @@ public:
 			else 				
 				lp = lp + sprintf(lp, " %s ",mGenFuncPara.ParameterList.at(i+1).c_str());
 		}
+	*/
 		lp = lp + sprintf(lp, " )*/ ");				
 		
 		if(FuncBody->getLocStart().isValid())
@@ -535,7 +574,7 @@ public:
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
      
-		if(strcmp("getDisplayConfigs",FuncName.c_str()) == 0)
+		if(strcmp("dumpAllLocked",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
