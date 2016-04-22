@@ -21,16 +21,18 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Rewrite/Frontend/Rewriters.h"
 //#include "clang/Rewrite/Rewriter.h"
+#include "clang/AST/PrettyPrinter.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 
+//LangOptions &lo;
 
 
 class ASTVistorGenFuncPara : public RecursiveASTVisitor<ASTVistorGenFuncPara> {
 public:
-	ASTVistorGenFuncPara(SourceManager &S, SourceLocation s, SourceLocation e) : IsValid(true), TheSourceMgr(S), lStart(s), lEnd(e) {
+	ASTVistorGenFuncPara(SourceManager &S, const LangOptions &L, SourceLocation s, SourceLocation e) : IsValid(true), TheSourceMgr(S), TheLangOpts(L), lStart(s), lEnd(e) {
 		ParameterList.clear();
 	}
 
@@ -48,6 +50,7 @@ public:
 			{
 				//VarDecl * varDecl = cast<VarDecl>(valueDecl);
 				QualType t = valueDecl->getType();		
+				t = t.getNonReferenceType();
 	
 				SourceLocation declLoc = valueDecl->getLocStart();
 
@@ -74,7 +77,18 @@ public:
 
 					if(existed == false)
 					{
+						//std::string s;
+						//llvm::raw_string_ostream mStr(s);
+						//LangOptions lo;
+						//PrintingPolicy pp(TheLangOpts);
+						//Twine mT("XXX");
+						//t.print(mStr,pp,mT,0);
+
+						
+						
+
 						ParameterList.push_back(t.getAsString());
+						//ParameterList.push_back(s);
 						ParameterList.push_back(dre->getNameInfo().getAsString());
 					}
 				}
@@ -88,6 +102,9 @@ public:
 			//ParameterList.push_back(me->getMemberNameInfo().getAsString());
 
 		}
+		
+
+		// Following are filters
 
 		if (isa<ReturnStmt>(s))
 		{
@@ -98,6 +115,18 @@ public:
 		{
 			IsValid = false;
 		}
+
+		if (isa<BreakStmt>(s))
+		{
+			IsValid = false;
+		}
+
+		if (isa<ContinueStmt>(s))
+		{
+			IsValid = false;
+		}
+	
+
 
 
 
@@ -121,9 +150,10 @@ public:
 
 	std::vector<std::string> ParameterList;
 	SourceManager &TheSourceMgr;
+	const LangOptions &TheLangOpts;
 	SourceLocation lStart;
 	SourceLocation lEnd;
-
+	
 
 };
 
@@ -147,7 +177,7 @@ public:
 			Stmt** ModuleEnd = NULL;
 
 			
-			ASTVistorGenFuncPara mChecker(TheSourceMgr,s->getLocStart(), s->getLocEnd());
+			ASTVistorGenFuncPara mChecker(TheSourceMgr,TheRewriter.getLangOpts(), s->getLocStart(), s->getLocEnd());
 	        
 			//mChecker.TraverseStmt(FuncBody);
 
@@ -158,6 +188,7 @@ public:
                 if(locals!=NULL && (*locals) != NULL)
                 {
 					bool isValid = true;
+					bool isLast = false;
 
 					if(isa<DeclStmt>(*locals))
 					{
@@ -194,6 +225,7 @@ public:
 					if(isValid == true && locals == (cs->body_end() -1))
 					{
 						isValid = false;
+						isLast = true;
 					}
 
 					if(isValid == false)
@@ -216,7 +248,45 @@ public:
 							str << " to " << (*ModuleEnd)->getLocEnd().printToString(TheSourceMgr);
 							str << " */ \n" ;
 
+							str << "\nvoid F_" << functionCounter++ ;
+							str << "(";
+							// Paramter List
+							for(int j = 0; j < mChecker.ParameterList.size();j+=2)
+							{
+								str << mChecker.ParameterList.at(j) << " &" << mChecker.ParameterList.at(j+1);
+								if(j+2 != mChecker.ParameterList.size()) str << ",";
+							}
+
+							str << "){\n";
+							// Stmts
+							//for(Stmt ** tmpStmt = ModuleStart; tmpStmt <= ModuleEnd; tmpStmt++)
+							//{
+								//std::string mStr;	
+								//llvm::raw_string_ostream rostream(mStr);
+								//(*tmpStmt)->dump(rostream, TheSourceMgr);
+								//str << rostream.str();
+							//}
+
+							SourceLocation tmpLocEnd;
+
+							if(isLast == false)
+							{
+								tmpLocEnd = (*locals) -> getLocStart().getLocWithOffset(-1);
+							}
+							else
+							{
+								tmpLocEnd = cs -> getLocEnd().getLocWithOffset(-1);
+							}
+
+
+							FullSourceLoc fullLocStart((*ModuleStart)->getLocStart(), TheSourceMgr);
+							FullSourceLoc fullLocEnd(tmpLocEnd, TheSourceMgr);
+			
+							str << TheRewriter.getRewrittenText(SourceRange(fullLocStart.getExpansionLoc(), fullLocEnd.getExpansionLoc()));
 							
+							str << "\n}\n";
+							
+
 							TheRewriter.InsertText(locDump, str.str(),true,true);
 
 
@@ -243,9 +313,11 @@ public:
 	Rewriter &TheRewriter;
 	SourceLocation locDump;
 
+	static int functionCounter;
+
 };
 
-
+int ASTVistorModulizer::functionCounter = 0;
 
 
 
@@ -408,7 +480,7 @@ public:
 		if(FuncBody->getLocStart().isValid() && FuncBody->getLocEnd().isValid())
 		{
 
-		ASTVistorGenFuncPara mGenFuncPara(TheSourceMgr,FuncBody->getLocStart(), FuncBody->getLocEnd());
+		ASTVistorGenFuncPara mGenFuncPara(TheSourceMgr,TheRewriter.getLangOpts(),FuncBody->getLocStart(), FuncBody->getLocEnd());
 		mGenFuncPara.TraverseStmt(FuncBody);
 		
 		char buf[1024*64];
@@ -459,7 +531,7 @@ public:
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
      
-		if(strcmp("createDisplay",FuncName.c_str()) == 0)
+		if(strcmp("destroyDisplay",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
@@ -530,6 +602,7 @@ int Rewrite(char* src, char* dest, char** includeDirStrList,
 	TheCompInst.createDiagnostics();
 
 	LangOptions &lo = TheCompInst.getLangOpts();
+//	lo = TheCompInst.getLangOpts();
 	lo.CPlusPlus11 = 1;
 	lo.CPlusPlus = 1;
 	lo.Bool = 1;
