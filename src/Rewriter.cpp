@@ -46,10 +46,20 @@ public:
         	DeclRefExpr * dre = cast<DeclRefExpr>(s);
 			ValueDecl * valueDecl = dre->getDecl();
 
-			if(isa<CXXMethodDecl>(valueDecl))
+			if(isa<CXXMethodDecl>(valueDecl)) 
 			{
-				IsValid = false;
+				IsValid = false;  // FIXME This filter is too relaxed
 			}
+
+			QualType t = valueDecl->getType();
+            t = t.getNonReferenceType();
+
+            std::string  typestr = t.getAsString();
+
+            int cnt = std::count(typestr.begin(), typestr.end(),':');
+            if(cnt > 0) IsValid = false; // FIXME  Need to indentity private!
+
+
 
 
 			//if(isa<VarDecl>(valueDecl) || isa<FunctionDecl>(valueDecl) )
@@ -59,10 +69,10 @@ public:
 				QualType t = valueDecl->getType();		
 				t = t.getNonReferenceType();
 	
-				std::string  typestr = t.getAsString(); 
+				//std::string  typestr = t.getAsString(); 
 
-				int cnt = std::count(typestr.begin(), typestr.end(),':'); 
-				if(cnt > 2) IsValid = false;
+				//int cnt = std::count(typestr.begin(), typestr.end(),':'); 
+				//if(cnt > 2) IsValid = false;
 
 
 				SourceLocation declLoc = valueDecl->getLocStart();
@@ -237,7 +247,7 @@ public:
 					{
 						mChecker.setLocationRange((*locals)->getLocStart(),(*locals)->getLocEnd());
 
-						std::vector<std::string> backupList = mChecker.ParameterList;  // There was a horrible bug! 
+						std::vector<std::string> backupList = mChecker.ParameterList;  // There was a horrible bug! FIXME
 						mChecker.TraverseStmt((*locals));
 
 						if(mChecker.IsValid == true)
@@ -279,18 +289,19 @@ public:
 						}
 						else
 						{				
-							//TODO  Generate Module
+							//TODO Here  Generate Module
 							// Parameter List from mChecker
 							// Code dumped from moduleStart to moduleEnd
 
 							std::stringstream str;
 
-							str << " /* ";
-							str << "Module " << (*ModuleStart)->getLocStart().printToString(TheSourceMgr);
-							str << " to " << (*ModuleEnd)->getLocEnd().printToString(TheSourceMgr);
-							str << " */ \n" ;
+							// Dump Module Position (TODO Debug Only)
+							//str << " /* ";
+							//str << "Module " << (*ModuleStart)->getLocStart().printToString(TheSourceMgr);
+							//str << " to " << (*ModuleEnd)->getLocEnd().printToString(TheSourceMgr);
+							//str << " */ \n" ;
 
-							str << "\nvoid F_" << functionCounter++ ;
+							str << "\nstatic void F_" << functionCounter++ ;  // FIXME add 'static' as a temperory fix; Need unique id!!!
 							str << "(";
 							// Paramter List
 							for(int j = 0; j < mChecker.ParameterList.size();j+=2)
@@ -315,18 +326,74 @@ public:
 							if(isLast == false)
 							{
 								tmpLocEnd = (*locals) -> getLocStart().getLocWithOffset(-1);
+								if((*locals)->getLocStart().isValid())
+								{
+
+								}
+								else
+								{
+									fprintf(stderr, "Can not copy code, location invalid 2\n");
+								}
+
 							}
 							else
 							{
 								tmpLocEnd = cs -> getLocEnd().getLocWithOffset(-1);
+								if(cs->getLocEnd().isValid())
+								{
+
+								}
+								else
+								{
+									fprintf(stderr, "Can not copy code, location invalid 1\n");
+								}
+
 							}
 
 
 							FullSourceLoc fullLocStart((*ModuleStart)->getLocStart(), TheSourceMgr);
 							FullSourceLoc fullLocEnd(tmpLocEnd, TheSourceMgr);
 			
-							str << TheRewriter.getRewrittenText(SourceRange(fullLocStart.getExpansionLoc(), fullLocEnd.getExpansionLoc()));
+
+							std::string  tmpCodeStr;
+						
+							if(fullLocStart.getFileID() == TheSourceMgr.getMainFileID()
+								&& fullLocEnd.getFileID() == TheSourceMgr.getMainFileID())
+							{
+	
+							if(fullLocStart.getExpansionLoc().isValid() && fullLocEnd.getExpansionLoc().isValid())
+							{
+								tmpCodeStr =  TheRewriter.getRewrittenText(SourceRange(fullLocStart.getExpansionLoc(), fullLocEnd.getExpansionLoc()));
+							}
+							else
+							{
+								fprintf(stderr, "Can not copy code, location invalid\n");	
+							}
+
+							}
+							else
+							{
+								fprintf(stderr, "Module Range Across File (a bug) \n");
+
+							}
+
+
+
+							const char * tmpCodeStrPtr = tmpCodeStr.c_str();
+	
+
+							bool getrid = false;
+							for (int i = 0; i < strlen(tmpCodeStrPtr); i++) // Remove the macro define
+							{	
+								if(tmpCodeStrPtr[i] == '#') getrid = true;
+								if(tmpCodeStrPtr[i] == '\n') getrid = false;
+
+								if(getrid == false) str << tmpCodeStrPtr[i];
+							}
 							
+
+
+
 							str << "\n}\n";
 							
 
@@ -408,6 +475,8 @@ public:
 
 
   bool VisitStmt(Stmt *s) {
+	return true;  // The following part is for debug only.
+
     // Only care about If statements.
 	if(s->getLocEnd().isValid())
 	{
@@ -471,18 +540,18 @@ public:
 		{
 			//Start the modulizer !!! //TODO
 
-			ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, f->getSourceRange().getBegin());
-			mModulizer.TraverseStmt(FuncBody); 
+			// BlackList
+			 DeclarationName DeclName = f->getNameInfo().getName();
+      		 std::string FuncName = DeclName.getAsString();
 
-
-
-
-			
-	
+        	if(strcmp("operator*",FuncName.c_str()) != 0 &&
+				strcmp("doLogFrameDurations",FuncName.c_str()) !=0)  //FIXME temperory fix for private member access
+        	{
+        
+				ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, f->getSourceRange().getBegin());
+				mModulizer.TraverseStmt(FuncBody); 
+			}	
 		}
-
-
-
 
 		int counter = 0;
 		if(isa<CompoundStmt>(FuncBody))
@@ -505,7 +574,6 @@ public:
 				}
 			}
 		}
-
 
 		// Generate Parameter List
 		
@@ -574,7 +642,7 @@ public:
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
      
-		if(strcmp("dumpAllLocked",FuncName.c_str()) == 0)
+		if(strcmp("dump",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
@@ -613,20 +681,25 @@ private:
 
 class MyASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R,SourceManager &S, ASTContext &C) : Visitor(R,S,C) {}
+  MyASTConsumer(Rewriter &R,SourceManager &S, ASTContext &C) : Visitor(R,S,C),TheSourceMgr(S) {}
 
   // Override the method that gets called for each parsed top-level
   // declaration.
   virtual bool HandleTopLevelDecl(DeclGroupRef DR) {
     for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b)
-      // Traverse the declaration using our AST visitor.
-      Visitor.TraverseDecl(*b);
-	  //(*b)->dumpColor();
+    {  // Traverse the declaration using our AST visitor.
+     	FullSourceLoc fLoc((*b)->getLocStart(),TheSourceMgr);
+		if(TheSourceMgr.getMainFileID() == fLoc.getFileID())
+		{
+			Visitor.TraverseDecl(*b);
+		}
+	}  //(*b)->dumpColor();
     return true;
   }
 
 private:
-  MyASTVisitor Visitor;
+	MyASTVisitor Visitor;	
+	SourceManager &TheSourceMgr;
 };
 
 
