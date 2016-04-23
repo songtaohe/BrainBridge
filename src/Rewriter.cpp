@@ -96,8 +96,9 @@ public:
 				{
 					IsValid = false; // Filter out those nested private type decl 
 				}
-			}			
+			}
 
+			
 
             std::string  typestr = t.getAsString();
 
@@ -114,6 +115,16 @@ public:
 				QualType t = valueDecl->getType();		
 				t = t.getNonReferenceType();
 	
+			if(t.getTypePtr()->isFunctionType())
+			{
+				IsValid = false;
+			}
+			
+			if(t.getTypePtr()->isPointerType())
+			if(t.getTypePtr()->getPointeeType().getTypePtr()->isFunctionType())
+			{
+				IsValid = false;
+			}			
 				//std::string  typestr = t.getAsString(); 
 
 				//int cnt = std::count(typestr.begin(), typestr.end(),':'); 
@@ -212,6 +223,12 @@ public:
 		{
 			IsValid = false;
 		}
+			
+		if (isa<LabelStmt>(s))
+		{
+			IsValid = false;
+		}
+
 
 		if (isa<DefaultStmt>(s))
 		{
@@ -362,24 +379,36 @@ public:
 							// Code dumped from moduleStart to moduleEnd
 
 							std::stringstream str;
-
+							std::string funcName;
+							std::string paraList;
 							// Dump Module Position (TODO Debug Only)
 							//str << " /* ";
 							//str << "Module " << (*ModuleStart)->getLocStart().printToString(TheSourceMgr);
 							//str << " to " << (*ModuleEnd)->getLocEnd().printToString(TheSourceMgr);
 							//str << " */ \n" ;
 
-							//str << "\nnamespace android {\n";
-							str << "\nstatic void F_" << functionCounter++ ;  // FIXME add 'static' as a temperory fix; Need unique id!!!
+							//********************************************************
+							// ***   Generate Function 							  ***
+							//********************************************************
+
+							std::stringstream tmpName;
+							tmpName << "F_" << (functionCounter++);
+
+
+							funcName = tmpName.str();
+
+							str << "\nstatic void " << funcName;  // FIXME add 'static' as a temperory fix; Need unique id!!!
 							str << "(";
 							// Paramter List
+						
 							for(int j = 0; j < mChecker.ParameterList.size();j+=2)
 							{
 								//str << mChecker.ParameterList.at(j) << " &" << mChecker.ParameterList.at(j+1);
-								str << mChecker.ParameterList.at(j) ;
-								if(j+2 != mChecker.ParameterList.size()) str << ",";
+								paraList += mChecker.ParameterList.at(j) ;
+								if(j+2 != mChecker.ParameterList.size()) paraList += ",";
 							}
 
+							str << paraList;
 							str << "){\n";
 							// Stmts
 							//for(Stmt ** tmpStmt = ModuleStart; tmpStmt <= ModuleEnd; tmpStmt++)
@@ -390,8 +419,12 @@ public:
 								//str << rostream.str();
 							//}
 
-							SourceLocation tmpLocEnd;
 
+							
+							SourceLocation tmpLocEnd;
+							SourceLocation preciseStart;
+							SourceLocation preciseEnd;
+							/*
 							if(isLast == false)
 							{
 								tmpLocEnd = (*locals) -> getLocStart().getLocWithOffset(-1);
@@ -418,7 +451,7 @@ public:
 								}
 
 							}
-
+							*/
 
 							tmpLocEnd = (*ModuleEnd)->getLocEnd();
 
@@ -444,7 +477,11 @@ public:
 						        rangeOpts.IncludeInsertsAtBeginOfRange = false;
 								int offset = TheRewriter.getRangeSize(SourceRange(fullLocEnd.getExpansionLoc(),fullLocEnd.getExpansionLoc()), rangeOpts);
 
+								preciseStart = fullLocStart.getExpansionLoc();
+								
+
 								char t = *(TheSourceMgr.getCharacterData(fullLocEnd.getLocWithOffset(offset-1)));
+				
 								if(t != ';' && t != '}')
 								{
 								fprintf(stderr, "Offset %d \n",offset);
@@ -464,7 +501,11 @@ public:
 									}
 									offset++;
 								}
-								}								
+								}
+
+								preciseEnd = fullLocEnd.getLocWithOffset(offset);
+
+								
 							}
 							else
 							{
@@ -498,7 +539,49 @@ public:
 							str << "\n}\n";
 							
 
+
+							//********************************************************
+							// ***   Generate Function Type and Function Pointer  ***
+							//********************************************************
+
+							str << "typedef void (*PTR_" << funcName << ")";
+ 							str << "(" << paraList << ");\n";
+
+							str << "static PTR_" << funcName << " m" << funcName << " = " << funcName << ";\n";
+
 							TheRewriter.InsertText(locDump, str.str(),true,true);
+
+							if(functionCounter == 55)
+							{
+								fprintf(stderr,"????????  %s\n",locDump.printToString(TheSourceMgr).c_str());
+							}
+
+
+
+							//********************************************************
+							// ***   Replace Original Source Code				  ***
+							//********************************************************
+
+							
+
+							std::stringstream replaceCode;
+
+							replaceCode << "(*m" << funcName << ")(";
+							for(int j = 0; j < mChecker.ParameterList.size();j+=2)
+                            {
+                                //str << mChecker.ParameterList.at(j) << " &" << mChecker.ParameterList.at(j+1);
+                                replaceCode << mChecker.ParameterList.at(j+1) ;
+                                if(j+2 != mChecker.ParameterList.size()) replaceCode << ",";
+                            }
+
+							replaceCode << ");\n"; 
+
+							TheRewriter.ReplaceText(SourceRange(preciseStart, preciseEnd), replaceCode.str());
+
+
+							//********************************************************
+							// ***   Generate Tag for debug						  ***
+							//********************************************************
 
 							std::stringstream tag;
 							tag << " /* HST_Module " << functionCounter << " */\n";
@@ -690,8 +773,8 @@ public:
 					if((*locals)->getLocStart().isValid())
 					{
 						char buf[1024];
-						sprintf(buf," /* Stmt %d */ ",++counter);
-						TheRewriter.InsertText((*locals)->getLocStart(),buf,true,true);
+						//sprintf(buf," /* Stmt %d */ ",++counter);
+						//TheRewriter.InsertText((*locals)->getLocStart(),buf,true,true);
 					}			
 				}
 			}
@@ -815,18 +898,25 @@ private:
 	void updateScope(Decl *s)
 	{
 		static int init = 0;		
+		FullSourceLoc _lS(s->getSourceRange().getBegin(), TheSourceMgr);	
+		FullSourceLoc _lE(s->getSourceRange().getEnd(), TheSourceMgr);
+		SourceLocation lS = _lS.getExpansionLoc();
+		SourceLocation lE = _lE.getExpansionLoc();
+
+
+
 		if(init == 0)
 		{
-			scopeStart = s->getSourceRange().getBegin();
-			scopeEnd = s->getSourceRange().getEnd();
+			scopeStart = lS;
+			scopeEnd = lE;
 			init = 1;
 		}
 		else
 		{
-			if(!isLocInRange(s->getSourceRange().getBegin(),scopeStart,scopeEnd))
+			if(!isLocInRange(lS,scopeStart,scopeEnd))
 			{
-				scopeStart = s->getSourceRange().getBegin();
-	            scopeEnd = s->getSourceRange().getEnd();
+				scopeStart = lS;
+	            scopeEnd = lE;
 			}		
 
 		}
