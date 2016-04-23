@@ -8,7 +8,7 @@ CFLAG += "-DTEMP_DIR = \"$(shell pwd)/tmp/$(TMP_PREFIX)\""
 
 
 
-IndexServerSRC = src/IndexServer.c 
+IndexServerSRC = src/IndexServer.cpp src/InfoManager.cpp
 CompilerWrapperSRC = src/CompilerClient.c
 
 CXX = g++
@@ -42,9 +42,9 @@ all : indexServer compilerWrapper
 
 indexServer : $(IndexServerSRC) src/*.h
 	mkdir -p bin
-	$(CC) -o bin/indexServer $(CFLAG) $(SOCKET_NAME) $(IndexServerSRC)
+	$(CXX) -o bin/indexServer $(CFLAG) $(SOCKET_NAME) $(IndexServerSRC)
 
-compilerWrapper : compilerWrapper.o rewriter.o src/*.h
+compilerWrapper : compilerWrapper.o rewriter.o
 	mkdir -p bin
 	$(CXX) -o bin/compilerWrapper compilerWrapper.o rewriter.o $(CFLAG) $(CXXFLAGS) $(LLVM_CXXFLAGS) $(CLANGLIBS) $(LLVM_LDFLAGS)
 

@@ -9,11 +9,16 @@
 
 #include "Common.h"
 #include "IndexServer.h"
+#include "InfoManager.h"
+
+
+InfoManager mInfoManager;
 
 void * TransactionThread(void * confd)
 {
 	int mfd = *((int*)confd);
 	char buf[1024];
+	char retBuf[1024];
 	struct MsgUniversal *mMsg = (struct MsgUniversal*)buf;
 	int len;
 	
@@ -28,8 +33,14 @@ void * TransactionThread(void * confd)
 
 	if(len == 0) return NULL;
 
+	if(mMsg->base.p1 == MSGTYPE_C2S_FILE_SOURCE)
+	{
+		int * ptr = (int*)retBuf;
+		ptr[0] = mInfoManager.AddSourceFile((char*)(&(mMsg->data)));
+		printf("File ID %d\n",ptr[0]);
+	}
 
-	write(mfd,buf,10);
+	write(mfd,retBuf,4);
 
 //	printf("Dead?\n");
 	printf("Read %3d bytes ==> %s\n", len, (char*)(&(mMsg->data)));

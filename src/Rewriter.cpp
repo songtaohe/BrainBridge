@@ -25,6 +25,8 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "Rewriter.h"
+
 using namespace clang;
 
 //LangOptions &lo;
@@ -392,12 +394,12 @@ public:
 							//********************************************************
 
 							std::stringstream tmpName;
-							tmpName << "F_" << (functionCounter++);
+							tmpName << "FILE" << RewriterFileID << "_FUNC" << (functionCounter++);
 
 
 							funcName = tmpName.str();
 
-							str << "\nstatic void " << funcName;  // FIXME add 'static' as a temperory fix; Need unique id!!!
+							str << "\nextern \"C\" " << "__attribute__((visibility(\"default\"))) void " << funcName;  // FIXME add 'static' as a temperory fix; Need unique id!!!
 							str << "(";
 							// Paramter List
 						
@@ -960,6 +962,8 @@ private:
 
 extern "C"
 {
+int RewriterFileID = 0;
+
 int Rewrite(char* src, char* dest, char** includeDirStrList,
             int * includeDirType, int includeDirCount,
             char ** defineStrList, int defineCount)

@@ -67,7 +67,7 @@ int SendStringSync(int socket_fd,char * buf,int length)
     mMsg = (struct MsgUniversal*)malloc(size);
     memset((char*)mMsg,0,size);
 
-    mMsg->base.p1 = MSGTYPE_C2S_FILE_SOURCE;
+    mMsg->base.p1 = MSGTYPE_DEBUG_STRING;
     sprintf(&(mMsg->data),"%s",buf);
 
     write(socket_fd,(char*)mMsg, size);
@@ -76,12 +76,37 @@ int SendStringSync(int socket_fd,char * buf,int length)
 
     read(socket_fd, mbuf, 1024);
                 //sleep(10000);     
-
-
-
-
     free(mMsg);
 } 
+
+int SendSourceFileName(int socket_fd,char * buf,int length)
+{
+	struct MsgUniversal *mMsg;
+	char mbuf[1024];
+    int size = sizeof(struct MsgUniversal) + length + 1;
+    int *ptr = (int*)mbuf;
+
+
+    mMsg = (struct MsgUniversal*)malloc(size);
+    memset((char*)mMsg,0,size);
+
+    mMsg->base.p1 = MSGTYPE_C2S_FILE_SOURCE;
+    sprintf(&(mMsg->data),"%s",buf);
+
+    write(socket_fd,(char*)mMsg, size);
+
+                //TODO wait for futher command
+
+    read(socket_fd, mbuf, 1024);
+
+
+                //sleep(10000);     
+    free(mMsg);
+
+    return ptr[0]; // FileID
+} 
+
+
 
 
 
@@ -254,6 +279,7 @@ int main(int argc, char** argv)
 	//		}
 
 			SendStringSync(socket_fd,dest,j);
+			RewriterFileID = SendSourceFileName(socket_fd,src,j-8);
 
 			// Key Function 
 			int ret = Rewrite(src,dest,IncludeDirStrList,IncludeDirType, IncludeDirCounter, DefineStrList,DefineCounter);
