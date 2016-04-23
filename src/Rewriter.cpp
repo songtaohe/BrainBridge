@@ -89,11 +89,20 @@ public:
 
 			QualType t = valueDecl->getType();
             t = t.getNonReferenceType();
+		
+			if(t.getTypePtr()->getAsCXXRecordDecl() != NULL)
+			{
+				if(t.getTypePtr()->getAsCXXRecordDecl()->getAccess() == AS_private)
+				{
+					IsValid = false; // Filter out those nested private type decl 
+				}
+			}			
+
 
             std::string  typestr = t.getAsString();
 
             int cnt = std::count(typestr.begin(), typestr.end(),':');
-            if(cnt > 2) IsValid = false; // FIXME  Need to indentity private!
+            if(cnt > 2) IsValid = false; // FIXME  Need to indentity private type!   Too Complex .....
 
 
 
@@ -304,7 +313,7 @@ public:
 					{
 						mChecker.setLocationRange((*locals)->getLocStart(),(*locals)->getLocEnd());
 
-						std::vector<std::string> backupList = mChecker.ParameterList;  // There was a horrible bug! FIXME
+						std::vector<std::string> backupList = mChecker.ParameterList;  // There was a horrible bug! 
 						mChecker.TraverseStmt((*locals));
 
 						if(mChecker.IsValid == true)
@@ -654,16 +663,16 @@ public:
 			 DeclarationName DeclName = f->getNameInfo().getName();
       		 std::string FuncName = DeclName.getAsString();
 
-        	if(strcmp("operator*",FuncName.c_str()) != 0 &&
-				strcmp("doLogFrameDurations",FuncName.c_str()) !=0)  //FIXME temperory fix for private member access
-        	{
+        	//if(strcmp("operator*",FuncName.c_str()) != 0 &&
+			//	strcmp("doLogFrameDurations",FuncName.c_str()) !=0)  //FIXME temperory fix for private member access
+        	//{
         
 				ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, scopeStart, scopeStart, scopeEnd);
 				//ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, f->getSourceRange().getBegin(), f->getLocStart(), f->getLocEnd());
 				//mModulizer.dStart = f->getSourceRange().getBegin();
 				//mModulizer.dEnd = f->getSourceRange().getEnd();
 				mModulizer.TraverseStmt(FuncBody); 
-			}	
+			//}	
 		}
 
 		int counter = 0;
