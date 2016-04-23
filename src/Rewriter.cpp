@@ -41,14 +41,50 @@ public:
 	bool VisitStmt(Stmt *s) {
 		//printf("???");
 
+		if (isa<MemberExpr>(s))
+		{
+			if((cast<MemberExpr>(s))->getFoundDecl()->getAccess() == AS_private) 
+			{
+				//fprintf(stderr, "A private member\n");
+				IsValid = false;
+			}
+		}
+
+
 		if (isa<DeclRefExpr>(s))
     	{
         	DeclRefExpr * dre = cast<DeclRefExpr>(s);
 			ValueDecl * valueDecl = dre->getDecl();
 
+			//if(dre->getFoundDecl()->getAccess() != AS_public)  // Avoid private type 
+			//{
+			//	IsValid = false;
+			//}
+
+
 			if(isa<CXXMethodDecl>(valueDecl)) 
 			{
-				IsValid = false;  // FIXME This filter is too relaxed
+				// Check whether it is a static one
+				if(cast<CXXMethodDecl>(valueDecl)->isStatic())
+				{
+					IsValid = false;
+				}
+
+			}
+		
+			if(isa<FunctionDecl>(valueDecl))
+			{
+				// Check whether it is a local one
+				if(valueDecl->getLocStart().isValid() && dStart.isValid() && dEnd.isValid())
+				{
+					if(isLocInRange(valueDecl->getLocStart(), dStart,dEnd)) IsValid = false;
+				}
+				else
+				{
+					fprintf(stderr, "isLocInRange Location Invalid Bug \n");
+					IsValid = false;
+				}
+				//IsValid = false;  // FIXME This filter is too relaxed
 			}
 
 			QualType t = valueDecl->getType();
@@ -57,7 +93,7 @@ public:
             std::string  typestr = t.getAsString();
 
             int cnt = std::count(typestr.begin(), typestr.end(),':');
-            if(cnt > 0) IsValid = false; // FIXME  Need to indentity private!
+            if(cnt > 2) IsValid = false; // FIXME  Need to indentity private!
 
 
 
@@ -191,6 +227,20 @@ public:
 		lEnd = e;
 	}
 
+	void setDeclRange(SourceLocation s, SourceLocation e)
+	{
+		dStart = s;
+		dEnd = e;
+	}
+
+	bool isLocInRange(SourceLocation a, SourceLocation b, SourceLocation c) // is a in (b,c)
+	{
+		BeforeThanCompare<SourceLocation> isBefore(TheSourceMgr);
+
+        bool b_before_a = isBefore(b,a);
+        bool a_before_c = isBefore(a,c);
+        return b_before_a && a_before_c;
+	}
 
 
 	std::vector<std::string> ParameterList;
@@ -198,7 +248,8 @@ public:
 	const LangOptions &TheLangOpts;
 	SourceLocation lStart;
 	SourceLocation lEnd;
-	
+	SourceLocation dStart;
+	SourceLocation dEnd;
 
 };
 
@@ -206,7 +257,7 @@ public:
 
 class ASTVistorModulizer : public RecursiveASTVisitor<ASTVistorModulizer> {
 public:
-	ASTVistorModulizer(SourceManager &S, Rewriter &R, SourceLocation loc) : IsValid(true), TheSourceMgr(S), TheRewriter(R), locDump(loc) {
+	ASTVistorModulizer(SourceManager &S, Rewriter &R, SourceLocation loc, SourceLocation ds, SourceLocation de) : IsValid(true), TheSourceMgr(S), TheRewriter(R), locDump(loc), dStart(ds), dEnd(de) {
 		ParameterList.clear();
 	}
 
@@ -214,6 +265,11 @@ public:
 
 	bool VisitStmt(Stmt *s) {
 		//printf("???");
+		if (isa<DeclStmt>(s))
+		{
+			return false; // Do not go into local decl, e.g. class;
+		}
+
 		if (isa<CompoundStmt>(s))
 		{
 			CompoundStmt *cs = cast<CompoundStmt>(s);
@@ -224,7 +280,8 @@ public:
 			
 			ASTVistorGenFuncPara mChecker(TheSourceMgr,TheRewriter.getLangOpts(), s->getLocStart(), s->getLocEnd());
 	       	mChecker.cleanUp();
- 
+ 			mChecker.setDeclRange(dStart,dEnd);
+
 			//mChecker.TraverseStmt(FuncBody);
 
 
@@ -266,9 +323,11 @@ public:
 							mChecker.ParameterList = backupList;
 							isValid = false;
 							// Reclusive 
-							ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump);
-							mModulizer.TraverseStmt((*locals));			
-		
+							if(!isa<DeclStmt>(*locals)) // No local record, class, structure and etc decl. 
+							{
+								ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump, dStart, dEnd);
+								mModulizer.TraverseStmt((*locals));			
+							}
 						}
 
 					}
@@ -301,6 +360,7 @@ public:
 							//str << " to " << (*ModuleEnd)->getLocEnd().printToString(TheSourceMgr);
 							//str << " */ \n" ;
 
+							//str << "\nnamespace android {\n";
 							str << "\nstatic void F_" << functionCounter++ ;  // FIXME add 'static' as a temperory fix; Need unique id!!!
 							str << "(";
 							// Paramter List
@@ -326,7 +386,7 @@ public:
 							if(isLast == false)
 							{
 								tmpLocEnd = (*locals) -> getLocStart().getLocWithOffset(-1);
-								if((*locals)->getLocStart().isValid())
+								if(tmpLocEnd.isValid())
 								{
 
 								}
@@ -339,7 +399,7 @@ public:
 							else
 							{
 								tmpLocEnd = cs -> getLocEnd().getLocWithOffset(-1);
-								if(cs->getLocEnd().isValid())
+								if(tmpLocEnd.isValid())
 								{
 
 								}
@@ -351,9 +411,14 @@ public:
 							}
 
 
-							FullSourceLoc fullLocStart((*ModuleStart)->getLocStart(), TheSourceMgr);
-							FullSourceLoc fullLocEnd(tmpLocEnd, TheSourceMgr);
-			
+							tmpLocEnd = (*ModuleEnd)->getLocEnd();
+
+
+							FullSourceLoc _fullLocStart((*ModuleStart)->getLocStart(), TheSourceMgr);
+							FullSourceLoc _fullLocEnd(tmpLocEnd, TheSourceMgr);
+							FullSourceLoc fullLocStart(_fullLocStart.getExpansionLoc(), TheSourceMgr);
+                            FullSourceLoc fullLocEnd(_fullLocEnd.getExpansionLoc(), TheSourceMgr);
+
 
 							std::string  tmpCodeStr;
 						
@@ -363,7 +428,34 @@ public:
 	
 							if(fullLocStart.getExpansionLoc().isValid() && fullLocEnd.getExpansionLoc().isValid())
 							{
+
+								fprintf(stderr, "From %s to %s\n",fullLocStart.getExpansionLoc().printToString(TheSourceMgr).c_str(),fullLocEnd.getExpansionLoc().printToString(TheSourceMgr).c_str());	
 								tmpCodeStr =  TheRewriter.getRewrittenText(SourceRange(fullLocStart.getExpansionLoc(), fullLocEnd.getExpansionLoc()));
+								Rewriter::RewriteOptions rangeOpts;
+						        rangeOpts.IncludeInsertsAtBeginOfRange = false;
+								int offset = TheRewriter.getRangeSize(SourceRange(fullLocEnd.getExpansionLoc(),fullLocEnd.getExpansionLoc()), rangeOpts);
+
+								char t = *(TheSourceMgr.getCharacterData(fullLocEnd.getLocWithOffset(offset-1)));
+								if(t != ';' && t != '}')
+								{
+								fprintf(stderr, "Offset %d \n",offset);
+								while(1)
+								{
+										
+       							    char t = *(TheSourceMgr.getCharacterData(fullLocEnd.getLocWithOffset(offset)));
+									if(t!=';' && t!='}')
+									{
+										fprintf(stderr,"%c",t);
+										tmpCodeStr += t;
+									}
+									else
+									{
+										if(t == ';') tmpCodeStr += t;
+										break;
+									}
+									offset++;
+								}
+								}								
 							}
 							else
 							{
@@ -399,6 +491,9 @@ public:
 
 							TheRewriter.InsertText(locDump, str.str(),true,true);
 
+							std::stringstream tag;
+							tag << " /* HST_Module " << functionCounter << " */\n";
+							TheRewriter.InsertText(fullLocStart, tag.str(),true,true);
 
 						}		
 						ModuleStart = NULL;
@@ -421,6 +516,9 @@ public:
 	SourceManager &TheSourceMgr;
 	Rewriter &TheRewriter;
 	SourceLocation locDump;
+
+	SourceLocation dStart;
+	SourceLocation dEnd;
 
 	static int functionCounter;
 	static int totalModulizedLine;
@@ -530,8 +628,20 @@ public:
     return true;
   }
 
+	bool VisitDecl(Decl *d)
+	{
+		if(isa<NamespaceDecl>(d))
+		{
+			std::string name = (cast<NamespaceDecl>(d))->getNameAsString();
+			if(name == "android") return true; // Do not update!
+		}
+		updateScope(d);
+		return true;
+	}
+
 
   bool VisitFunctionDecl(FunctionDecl *f) {
+	updateScope(f);
     // Only function definitions (with bodies), not declarations.
     if (f->hasBody()) {
       Stmt *FuncBody = f->getBody();
@@ -548,7 +658,10 @@ public:
 				strcmp("doLogFrameDurations",FuncName.c_str()) !=0)  //FIXME temperory fix for private member access
         	{
         
-				ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, f->getSourceRange().getBegin());
+				ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, scopeStart, scopeStart, scopeEnd);
+				//ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, f->getSourceRange().getBegin(), f->getLocStart(), f->getLocEnd());
+				//mModulizer.dStart = f->getSourceRange().getBegin();
+				//mModulizer.dEnd = f->getSourceRange().getEnd();
 				mModulizer.TraverseStmt(FuncBody); 
 			}	
 		}
@@ -591,7 +704,7 @@ public:
 		{
 
 		ASTVistorGenFuncPara mGenFuncPara(TheSourceMgr,TheRewriter.getLangOpts(),FuncBody->getLocStart(), FuncBody->getLocEnd());
-		mGenFuncPara.TraverseStmt(FuncBody);
+		//mGenFuncPara.TraverseStmt(FuncBody);
 		
 		char buf[1024*64];
 		char * lp = buf;
@@ -642,7 +755,7 @@ public:
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
      
-		if(strcmp("dump",FuncName.c_str()) == 0)
+		if(strcmp("inverse",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
@@ -677,6 +790,42 @@ private:
 	SourceManager &TheSourceMgr;
 	ASTContext &TheASTContext;
 
+	SourceLocation scopeStart; // the first {} from nothing...
+	SourceLocation scopeEnd;
+	
+	bool isLocInRange(SourceLocation a, SourceLocation b, SourceLocation c) // is a in (b,c)
+    {
+        BeforeThanCompare<SourceLocation> isBefore(TheSourceMgr);
+
+        bool b_before_a = isBefore(b,a);
+        bool a_before_c = isBefore(a,c);
+        return b_before_a && a_before_c;
+    }
+
+
+	void updateScope(Decl *s)
+	{
+		static int init = 0;		
+		if(init == 0)
+		{
+			scopeStart = s->getSourceRange().getBegin();
+			scopeEnd = s->getSourceRange().getEnd();
+			init = 1;
+		}
+		else
+		{
+			if(!isLocInRange(s->getSourceRange().getBegin(),scopeStart,scopeEnd))
+			{
+				scopeStart = s->getSourceRange().getBegin();
+	            scopeEnd = s->getSourceRange().getEnd();
+			}		
+
+		}
+
+	} 
+
+
+
 };
 
 class MyASTConsumer : public ASTConsumer {
@@ -692,6 +841,8 @@ public:
 		if(TheSourceMgr.getMainFileID() == fLoc.getFileID())
 		{
 			Visitor.TraverseDecl(*b);
+		
+	  		//(*b)->dumpColor();
 		}
 	}  //(*b)->dumpColor();
     return true;
