@@ -5,11 +5,12 @@ CFLAG = -pthread -g
 #CPPFLAG = -pthread
 SOCKET_NAME = "-D INDEX_SERVER_NAME = \"$(shell pwd)/socket/index_server_socket\""
 CFLAG += "-DTEMP_DIR = \"$(shell pwd)/tmp/$(TMP_PREFIX)\""
-
+DATASET_NAME = "-D SOURCELISTNAME = \"$(shell pwd)/data/sourcelist\"" 
+DATASET_NAME += "-D MODULELISTNAME = \"$(shell pwd)/data/modulelist\"" 
 
 
 IndexServerSRC = src/IndexServer.cpp src/InfoManager.cpp
-CompilerWrapperSRC = src/CompilerClient.c
+CompilerWrapperSRC = src/CompilerClient.cpp
 
 CXX = g++
 CXXFLAGS = -fno-rtti -std=c++11 -g
@@ -39,17 +40,18 @@ CLANGLIBS = \
 all : indexServer compilerWrapper
 	mkdir -p socket
 	mkdir -p tmp
+	mkdir -p data
 
 indexServer : $(IndexServerSRC) src/*.h
 	mkdir -p bin
-	$(CXX) -o bin/indexServer $(CFLAG) $(SOCKET_NAME) $(IndexServerSRC)
+	$(CXX) -o bin/indexServer $(CFLAG) $(SOCKET_NAME) $(DATASET_NAME) $(IndexServerSRC)
 
 compilerWrapper : compilerWrapper.o rewriter.o
 	mkdir -p bin
 	$(CXX) -o bin/compilerWrapper compilerWrapper.o rewriter.o $(CFLAG) $(CXXFLAGS) $(LLVM_CXXFLAGS) $(CLANGLIBS) $(LLVM_LDFLAGS)
 
-compilerWrapper.o: src/CompilerClient.c
-	$(CC) -c -o compilerWrapper.o $(CFLAG) $(SOCKET_NAME) $(CompilerWrapperSRC)
+compilerWrapper.o: src/CompilerClient.cpp
+	$(CXX) -c -o compilerWrapper.o $(CFLAG) $(SOCKET_NAME) $(CompilerWrapperSRC)
 
 rewriter.o : src/Rewriter.cpp
 	$(CXX) src/Rewriter.cpp $(CXXFLAGS) $(LLVM_CXXFLAGS) -c -o rewriter.o $(CLANG_BUILD_FLAGS)	
@@ -68,5 +70,6 @@ clean :
 	touch src/*.c src/*.h
 	rm -f -r bin
 	rm -f -r socket
+	rm -f -r data
 	#rm -f -r tmp
 	rm -f *.o

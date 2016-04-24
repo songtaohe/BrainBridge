@@ -22,28 +22,100 @@ void * TransactionThread(void * confd)
 	struct MsgUniversal *mMsg = (struct MsgUniversal*)buf;
 	int len;
 	
+	struct Transaction mTransaction;
+	mTransaction.InputList.clear();
+	mTransaction.AllOptions.clear();
+	int outputFlag = 0;
+	int counter = 0;
 
 	printf("This is a new transaction  %d \n",mfd);
+
 	while(1)
 	{	
-	len = read(mfd, buf, 512);
+		len = read(mfd, buf, 512);
 //	printf("Dead?\n");
 
 //	sprintf(buf,"SDFSDf");
 
-	if(len == 0) return NULL;
+		if(len == 0) 
+		{
+			mInfoManager.SaveAll();
+			mInfoManager.AddTransaction(mTransaction);
+			return NULL;
+		}
 
-	if(mMsg->base.p1 == MSGTYPE_C2S_FILE_SOURCE)
-	{
-		int * ptr = (int*)retBuf;
-		ptr[0] = mInfoManager.AddSourceFile((char*)(&(mMsg->data)));
-		printf("File ID %d\n",ptr[0]);
-	}
 
-	write(mfd,retBuf,4);
+		if (counter == 0)
+		{
+			std::string opt((char*)(&(mMsg->data)));
+			mTransaction.CommandName= opt;
+			printf("Read %3d bytes ==> %s\n", len, (char*)(&(mMsg->data)));
+			counter++;
+			continue;
+		}
+
+		if (counter == 1)
+		{
+			std::string opt((char*)(&(mMsg->data)));
+			mTransaction.FolderPath = opt;
+			printf("Read %3d bytes ==> %s\n", len, (char*)(&(mMsg->data)));
+			counter++;
+			continue;
+		}
+
+		
+
+		if(mMsg->base.p1 == MSGTYPE_DEBUG_STRING)
+		{
+			printf("Read %3d bytes ==> %s\n", len, (char*)(&(mMsg->data)));
+			std::string opt((char*)(&(mMsg->data)));
+
+			if(outputFlag == 1)
+			{
+				outputFlag = 0;
+				mTransaction.OutputString = opt;
+			}
+
+			if(opt == "-o")
+			{
+				outputFlag = 1;
+			}
+
+			if(opt[0] != '-')
+			{
+				mTransaction.InputList.push_back(opt);
+			}
+
+			mTransaction.AllOptions.push_back(opt);
+		}
+
+
+
+		if(mMsg->base.p1 == MSGTYPE_C2S_FILE_SOURCE)
+		{
+			int * ptr = (int*)retBuf;
+			ptr[0] = mInfoManager.AddSourceFile((char*)(&(mMsg->data)));
+			printf("File ID %d\n",ptr[0]);
+
+			std::string opt((char*)(&(mMsg->data)));
+			mTransaction.InputList.push_back(opt);
+			mTransaction.AllOptions.push_back(opt);
+			mInfoManager.AddFileToScriptGenList(ptr[0]);
+
+		}
+		else if(mMsg->base.p1 == MSGTYPE_C2S_MODULE_INFO)
+		{
+			int * ptr = (int*)(&(mMsg->data));
+			mInfoManager.AddModuleDescription(ptr[0],ptr[1],ptr[2],ptr[3],ptr[4],ptr[5]);
+			printf("FileID %d ModuleID %d From %d:%d to %d:%d\n",ptr[0], ptr[1],ptr[2],ptr[3],ptr[4],ptr[5]);
+		}
+
+		counter++;
+
+		write(mfd,retBuf,4);
 
 //	printf("Dead?\n");
-	printf("Read %3d bytes ==> %s\n", len, (char*)(&(mMsg->data)));
+		
 	}
 
 	close(mfd);

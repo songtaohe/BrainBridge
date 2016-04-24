@@ -582,11 +582,44 @@ public:
 
 
 							//********************************************************
+							// ***   Send module position info to database		***
+							//********************************************************
+
+							std::string strStart = preciseStart.printToString(TheSourceMgr);
+							std::string strEnd = preciseEnd.printToString(TheSourceMgr);
+
+							for(int i = 0; i< strStart.length();i++)
+							{
+								if(strStart[i] == ':') strStart[i] = ' ';
+							}
+
+							for(int i = 0; i< strEnd.length();i++)
+							{
+								if(strEnd[i] == ':') strEnd[i] = ' ';
+							}
+
+							std::stringstream ss(strStart);
+							std::stringstream se(strEnd);
+
+							std::string filename;
+
+							ss >> filename;
+							se >> filename;
+
+							int s1,s2,e1,e2;
+							ss >> s1;
+							ss >> s2;
+							se >> e1;
+							se >> e2;
+
+							SendModulePosition(RewriterFileID, functionCounter-1, s1,s2,e1,e2);
+
+							//********************************************************
 							// ***   Generate Tag for debug						  ***
 							//********************************************************
 
 							std::stringstream tag;
-							tag << " /* HST_Module " << functionCounter << " */\n";
+							tag << " /* HST_Module " << (functionCounter-1) << " */\n";
 							TheRewriter.InsertText(fullLocStart, tag.str(),true,true);
 
 						}		
