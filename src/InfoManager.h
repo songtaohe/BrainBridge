@@ -189,8 +189,15 @@ public:
 	void AddTransaction(struct Transaction mTransaction)
 	{
 		pthread_mutex_lock(&mLock);
-		
+
 		TransactionList.push_back(mTransaction);
+		//Start Search
+		printf("Start Search %d\n",ScriptGenerationList.size());
+		for(int i = 0; i< ScriptGenerationList.size(); i++)
+		{
+			GenerateScript(ScriptGenerationList.at(i));
+		}
+
 
 		pthread_mutex_unlock(&mLock);
 	}
@@ -203,6 +210,100 @@ public:
 		ScriptGenerationList.push_back(fileID);
 
 		pthread_mutex_unlock(&mLock);
+	}
+
+	void GenerateScript(int fileID)
+	{
+		std::stringstream scriptStr;
+		bool valid = false;
+
+		std::string currentTarget = SourceFileList.at(fileID);
+		while(1)
+		{
+			bool found = false;
+			struct Transaction mTransaction;
+			printf("Target %s \n",currentTarget.c_str());
+
+			for(int i = 0; i < TransactionList.size(); i++)
+			{
+				mTransaction = TransactionList.at(i);
+				for(int j = 0; j<mTransaction.InputList.size(); j++)
+				{
+					//printf("InputList%d %s \n",j, mTransaction.InputList.at(j).c_str());
+					if(mTransaction.InputList.at(j) == currentTarget)
+					{
+						found = true;
+						currentTarget = mTransaction.OutputString;
+						break;
+					}
+				}
+				if(found) break;
+
+			}
+
+			int size = currentTarget.size();
+			if(currentTarget[size-1] == 'o' &&
+				currentTarget[size-2] == 's' &&
+				currentTarget[size-3] == '.')
+			{
+				valid = true;
+			}
+
+
+			if(found)
+			{
+				scriptStr << "cd " << mTransaction.FolderPath << "\n";
+				scriptStr << mTransaction.CommandName ;
+				for(int i = 0; i<mTransaction.AllOptions.size();i++)
+				{
+					if(mTransaction.AllOptions.at(i) == SourceFileList.at(fileID))
+					{
+						std::string tmp = mTransaction.AllOptions.at(i);
+						tmp = tmp + ".cpp.cpp";
+						scriptStr << " " << tmp;
+					}
+					else if( mTransaction.AllOptions.at(i) == mTransaction.OutputString && valid)
+					{
+						std::string tmp(SHAREDOBJFOLDER);
+						std::stringstream tmp2;
+						tmp2 << tmp << fileID << ".so";
+						scriptStr << " " << tmp2.str();
+					}
+					else
+					{
+						scriptStr << " " << mTransaction.AllOptions.at(i);
+					}
+				}
+				scriptStr << "\n";
+			}
+			else
+			{
+				//printf("Generate Script Failed \nTrace:\n%s\n",scriptStr.str().c_str());
+				break;
+			}
+
+			if(valid)
+			{
+				printf("Generate Script(%d) Successfully\n",fileID);
+				std::stringstream fileName;
+				fileName << SCRIPTFOLDER << fileID << ".sh";
+				std::ofstream fscript;
+				fscript.open(fileName.str().c_str(), std::ios::out);
+				fscript << scriptStr.str();
+				fscript.close();
+
+				break;
+			}
+
+
+
+
+
+
+		}
+
+
+
 	}
 
 public:

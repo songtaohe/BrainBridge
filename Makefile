@@ -7,7 +7,9 @@ SOCKET_NAME = "-D INDEX_SERVER_NAME = \"$(shell pwd)/socket/index_server_socket\
 CFLAG += "-DTEMP_DIR = \"$(shell pwd)/tmp/$(TMP_PREFIX)\""
 DATASET_NAME = "-D SOURCELISTNAME = \"$(shell pwd)/data/sourcelist\"" 
 DATASET_NAME += "-D MODULELISTNAME = \"$(shell pwd)/data/modulelist\"" 
-
+DATASET_NAME += "-D SCRIPTFOLDER = \"$(shell pwd)/data/script/\"" 
+DATASET_NAME += "-D SHAREDOBJFOLDER = \"$(shell pwd)/data/lib/\"" 
+DATASET_NAME += "-D DATAFOLDER = \"$(shell pwd)/data/\"" 
 
 IndexServerSRC = src/IndexServer.cpp src/InfoManager.cpp
 CompilerWrapperSRC = src/CompilerClient.cpp
@@ -41,6 +43,8 @@ all : indexServer compilerWrapper
 	mkdir -p socket
 	mkdir -p tmp
 	mkdir -p data
+	mkdir -p data/script
+	mkdir -p data/lib
 
 indexServer : $(IndexServerSRC) src/*.h
 	mkdir -p bin

@@ -51,6 +51,7 @@ void * TransactionThread(void * confd)
 			mTransaction.CommandName= opt;
 			printf("Read %3d bytes ==> %s\n", len, (char*)(&(mMsg->data)));
 			counter++;
+			write(mfd,retBuf,4);
 			continue;
 		}
 
@@ -60,6 +61,7 @@ void * TransactionThread(void * confd)
 			mTransaction.FolderPath = opt;
 			printf("Read %3d bytes ==> %s\n", len, (char*)(&(mMsg->data)));
 			counter++;
+			write(mfd,retBuf,4);
 			continue;
 		}
 
@@ -74,19 +76,23 @@ void * TransactionThread(void * confd)
 			{
 				outputFlag = 0;
 				mTransaction.OutputString = opt;
+				
 			}
-
-			if(opt == "-o")
+			else
 			{
-				outputFlag = 1;
-			}
+				if(opt == "-o")
+				{
+					outputFlag = 1;
+				}
 
-			if(opt[0] != '-')
-			{
-				mTransaction.InputList.push_back(opt);
+				if(opt[0] != '-')
+				{
+					mTransaction.InputList.push_back(opt);
+				}
 			}
 
 			mTransaction.AllOptions.push_back(opt);
+
 		}
 
 
