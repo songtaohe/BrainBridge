@@ -31,6 +31,8 @@ using namespace clang;
 
 //LangOptions &lo;
 
+static int globalOffset = 0;
+
 
 class ASTVistorGenFuncPara : public RecursiveASTVisitor<ASTVistorGenFuncPara> {
 public:
@@ -351,7 +353,42 @@ public:
 							mChecker.ParameterList = backupList;
 							isValid = false;
 							// Reclusive 
-							if(!isa<DeclStmt>(*locals)) // No local record, class, structure and etc decl. 
+							if(isa<IfStmt>(*locals))
+							{
+								Stmt * sthen;
+								Stmt * selse;
+
+								sthen = (cast<IfStmt>(*locals))->getThen();
+								selse = (cast<IfStmt>(*locals))->getElse();
+
+								if(sthen != NULL)
+								{
+									ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump, dStart, dEnd);
+									mModulizer.VisitStmt(sthen);	
+								}
+
+								if(selse != NULL)
+								{
+									ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump, dStart, dEnd);
+									mModulizer.VisitStmt(selse);	
+								}
+
+							}
+							else if (isa<ForStmt>(*locals))
+							{
+								Stmt * sbody = (cast<ForStmt>(*locals))->getBody();
+								if(sbody != NULL)
+								{
+									ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump, dStart, dEnd);
+									mModulizer.VisitStmt(sbody);
+								}
+							}
+							else if (isa<CompoundStmt>(*locals))
+							{
+								ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump, dStart, dEnd);
+								mModulizer.VisitStmt(*locals);
+							}
+							else if(!isa<DeclStmt>(*locals)) // No local record, class, structure and etc decl. 
 							{
 								ASTVistorModulizer mModulizer(TheSourceMgr, TheRewriter, locDump, dStart, dEnd);
 								mModulizer.TraverseStmt((*locals));			
@@ -529,7 +566,8 @@ public:
 							bool getrid = false;
 							for (int i = 0; i < strlen(tmpCodeStrPtr); i++) // Remove the macro define
 							{	
-								if(tmpCodeStrPtr[i] == '#') getrid = true;
+								if(i>0 && tmpCodeStrPtr[i] == '#' && tmpCodeStrPtr[i-1] !='%' ) getrid = true;
+								if(i==0 && tmpCodeStrPtr[i] == '#') getrid = true;
 								if(tmpCodeStrPtr[i] == '\n') getrid = false;
 
 								if(getrid == false) str << tmpCodeStrPtr[i];
@@ -612,7 +650,7 @@ public:
 							se >> e1;
 							se >> e2;
 
-							SendModulePosition(RewriterFileID, functionCounter-1, s1,s2,e1,e2);
+							SendModulePosition(RewriterFileID, functionCounter-1, s1 - globalOffset,s2,e1 - globalOffset,e2);
 
 							//********************************************************
 							// ***   Generate Tag for debug						  ***
@@ -882,7 +920,7 @@ public:
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
      
-		if(strcmp("inverse",FuncName.c_str()) == 0)
+		if(strcmp("setUpHWComposer",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
@@ -1136,11 +1174,12 @@ TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.ge
 			
 			
 			msrc2 << buf;		
+			globalOffset ++;
 		}
 
 
 		msrc2 << std::string("#include \"/ssd/nexus6_lp/build/core/combo/include/arch/linux-arm/AndroidConfig.h\"");
-
+		globalOffset ++;
 
 
     	while ( getline (msrc1,line) )

@@ -69,6 +69,7 @@ install :
 	rm -f /usr/local/bin/indexServer
 	ln -s `pwd`/bin/compilerWrapper  /usr/local/bin/compilerWrapper
 	ln -s `pwd`/bin/indexServer  /usr/local/bin/indexServer
+	cp plugin/android_wysiwyg.py /home/songtao/.config/sublime-text-3/Packages/User/
 	
 clean :
 	touch src/*.c src/*.h
