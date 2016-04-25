@@ -289,6 +289,7 @@ class ASTVistorModulizer : public RecursiveASTVisitor<ASTVistorModulizer> {
 public:
 	ASTVistorModulizer(SourceManager &S, Rewriter &R, SourceLocation loc, SourceLocation ds, SourceLocation de) : IsValid(true), TheSourceMgr(S), TheRewriter(R), locDump(loc), dStart(ds), dEnd(de) {
 		ParameterList.clear();
+		globalDump = &staticGlobalDump;
 	}
 
 	bool IsValid;
@@ -449,6 +450,7 @@ public:
 
 							str << paraList;
 							str << "){\n";
+							str << "/*WYSIWYG_" << tmpName.str() << "_START*/\n";
 							// Stmts
 							//for(Stmt ** tmpStmt = ModuleStart; tmpStmt <= ModuleEnd; tmpStmt++)
 							//{
@@ -575,19 +577,26 @@ public:
 							
 
 
-
-							str << "\n}\n";
+							str << "\n/*WYSIWYG_" << tmpName.str() << "_END*/\n";
+							str << "}\n";
 							
 
 
 							//********************************************************
 							// ***   Generate Function Type and Function Pointer  ***
 							//********************************************************
+							std::stringstream declStr;
 
+							//declStr << "\nextern \"C\" " << "__attribute__((visibility(\"default\"))) void " << funcName;  // FIXME add 'static' as a temperory fix; Need unique id!!!
+							//declStr << "(" << paraList << ");\n";
+							//declStr << "typedef void (*PTR_" << funcName << ")";
+ 							//declStr << "(" << paraList << ");\n";
+							//declStr << "static PTR_" << funcName << " m" << funcName << " = " << funcName << ";\n";
 							str << "typedef void (*PTR_" << funcName << ")";
  							str << "(" << paraList << ");\n";
-
 							str << "static PTR_" << funcName << " m" << funcName << " = " << funcName << ";\n";
+
+
 
 							TheRewriter.InsertText(locDump, str.str(),true,true);
 
@@ -658,7 +667,15 @@ public:
 
 							std::stringstream tag;
 							tag << " /* HST_Module " << (functionCounter-1) << " */\n";
+							
+
 							TheRewriter.InsertText(fullLocStart, tag.str(),true,true);
+
+							//********************************************************
+							// ***   Generate Decl 								  ***
+							//********************************************************
+							//if(functionCounter == 1) staticGlobalDump = locDump.getLocWithOffset(-1);
+							TheRewriter.InsertText((*globalDump), tag.str(),true,true);
 
 						}		
 						ModuleStart = NULL;
@@ -677,10 +694,14 @@ public:
 	}
 
 
+
+
 	std::vector<std::string> ParameterList;
 	SourceManager &TheSourceMgr;
 	Rewriter &TheRewriter;
 	SourceLocation locDump;
+	SourceLocation *globalDump;
+	static SourceLocation staticGlobalDump; 
 
 	SourceLocation dStart;
 	SourceLocation dEnd;
@@ -691,7 +712,7 @@ public:
 
 int ASTVistorModulizer::functionCounter = 0;
 int ASTVistorModulizer::totalModulizedLine = 0;
-
+SourceLocation ASTVistorModulizer::staticGlobalDump;
 
 // By implementing RecursiveASTVisitor, we can specify which AST nodes
 // we're interested in by overriding relevant methods.
@@ -798,7 +819,11 @@ public:
 		if(isa<NamespaceDecl>(d))
 		{
 			std::string name = (cast<NamespaceDecl>(d))->getNameAsString();
-			if(name == "android") return true; // Do not update!
+			if(name == "android") 
+			{
+				ASTVistorModulizer::staticGlobalDump = (cast<NamespaceDecl>(d))->getRBraceLoc ().getLocWithOffset(-1);
+				return true; // Do not update!
+			}
 		}
 		updateScope(d);
 		return true;
@@ -955,6 +980,7 @@ private:
 	SourceManager &TheSourceMgr;
 	ASTContext &TheASTContext;
 
+	SourceLocation globalDump;
 	SourceLocation scopeStart; // the first {} from nothing...
 	SourceLocation scopeEnd;
 	
@@ -983,6 +1009,7 @@ private:
 			scopeStart = lS;
 			scopeEnd = lE;
 			init = 1;
+			globalDump = scopeStart.getLocWithOffset(-1);
 		}
 		else
 		{

@@ -67,9 +67,10 @@ rewriter.o : src/Rewriter.cpp
 install : 
 	rm -f /usr/local/bin/compilerWrapper
 	rm -f /usr/local/bin/indexServer
+	rm -f /home/songtao/.config/sublime-text-3/Packages/User/android_wysiwyg.py
 	ln -s `pwd`/bin/compilerWrapper  /usr/local/bin/compilerWrapper
 	ln -s `pwd`/bin/indexServer  /usr/local/bin/indexServer
-	cp plugin/android_wysiwyg.py /home/songtao/.config/sublime-text-3/Packages/User/
+	ln -s `pwd`/plugin/android_wysiwyg.py /home/songtao/.config/sublime-text-3/Packages/User/android_wysiwyg.py
 	
 clean :
 	touch src/*.c src/*.h
