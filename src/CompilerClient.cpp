@@ -293,6 +293,23 @@ int main(int argc, char** argv)
 	// Dump and Sync with Server
 	SendStringSync(socket_fd, argv[1], strlen(argv[1])); //Command Name
 	SendStringSync(socket_fd, argv[2], strlen(argv[2])); //Folder Path
+
+	fprintf(stderr, "\nCMD %s\n",argv[1]);
+	if(strcmp(argv[1],"/ssd/nexus6_lp/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.8/bin/arm-linux-androideabi-g++real") == 0)
+	{
+			fprintf(stderr, "\nCMD %s\n",argv[1]);
+			char mInclude[] = "prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.8/lib/gcc/arm-linux-androideabi/4.8/include";
+			sprintf(buf,"%s/%s",argv[2],mInclude);
+
+			IncludeDirType[IncludeDirCounter] = state;
+			
+			IncludeDirStrList[IncludeDirCounter] = (char*)malloc(sizeof(char)*(strlen(mInclude)+strlen(argv[2])+2));
+			sprintf(IncludeDirStrList[IncludeDirCounter],"%s",buf);
+			
+			IncludeDirCounter++;
+
+	}
+
 	for(int ind = 3; ind < argc; ind++)
     {
 
@@ -343,7 +360,8 @@ int main(int argc, char** argv)
 		}
 		printf("%s ",argv[ind]);
 	}
-
+	SendStringSync(socket_fd, "-ldl -pthread", strlen("-ldl -pthread"));
+	printf("-ldl -pthread");
 
 
 

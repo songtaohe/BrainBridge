@@ -102,6 +102,12 @@ public:
 				}
 			}
 
+			if(t.getTypePtr()->isArrayType() == true && t.getTypePtr()->isConstantArrayType() == false)
+			{
+				IsValid = false;
+			}
+			if(strcmp("Fifo::const_iterator",t.getAsString().c_str())==0) IsValid = false; //This is ... Just a stupid fix
+
 			
 
             std::string  typestr = t.getAsString();
@@ -168,6 +174,10 @@ public:
 						llvm::raw_string_ostream mStr(s);
 						//LangOptions lo;
 						PrintingPolicy pp(TheLangOpts);
+						pp.SuppressScope = false;
+						pp.SuppressUnwrittenScope = false;
+						pp.SuppressSpecifiers = false;
+
 						//Twine mT("(&"+dre->getNameInfo().getAsString()+")");
 						std::string mTypeStr = dre->getNameInfo().getAsString();
 						std::string mRefTypeStr = "(&" + mTypeStr + ")";				
@@ -841,8 +851,6 @@ public:
     			TheRewriter.InsertText(ASTVistorModulizer::staticGlobalDump, str.str(),true,true);
 
 
-    			
-				
 
 				TheRewriter.InsertText((cast<NamespaceDecl>(d))->getRBraceLoc (), "}}",true,true);
 
@@ -1064,13 +1072,21 @@ private:
 
 class MyASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R,SourceManager &S, ASTContext &C) : Visitor(R,S,C),TheSourceMgr(S) {}
+  MyASTConsumer(Rewriter &R,SourceManager &S, ASTContext &C, CompilerInstance &CI) : Visitor(R,S,C),TheSourceMgr(S) ,TheCompInst(CI) {}
 
   // Override the method that gets called for each parsed top-level
   // declaration.
   virtual bool HandleTopLevelDecl(DeclGroupRef DR) {
+  	//fprintf(stderr,"Error %d\n",TheCompInst.getDiagnosticClient().getNumErrors());
+  	if(TheCompInst.getDiagnosticClient().getNumErrors() > 0)
+  	{
+  		success = 0;
+  		return false;
+  	}
+
     for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b)
     {  // Traverse the declaration using our AST visitor.
+
      	FullSourceLoc fLoc((*b)->getLocStart(),TheSourceMgr);
 		if(TheSourceMgr.getMainFileID() == fLoc.getFileID())
 		{
@@ -1081,10 +1097,12 @@ public:
 	}  //(*b)->dumpColor();
     return true;
   }
-
+public:
+	int success;
 private:
 	MyASTVisitor Visitor;	
 	SourceManager &TheSourceMgr;
+	CompilerInstance &TheCompInst;
 };
 
 
@@ -1244,9 +1262,23 @@ TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.ge
 		globalOffset ++;
 
 
+		int brace = 0;
     	while ( getline (msrc1,line) )
     	{
+    		if(line == "using namespace android;")
+    		{
+    			msrc2 << "namespace android {\n";
+    			brace ++;
+    		}
+    		else
+    		{
       		msrc2 << line << '\n';
+      		}
+    	}
+
+    	for(int i = 0; i< brace; i++)
+    	{
+    		msrc2 << "\n}\n";
     	}
     	msrc1.close();
 		msrc2.close();
@@ -1262,17 +1294,20 @@ TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.ge
     	SourceMgr.createFileID(FileIn, SourceLocation(), SrcMgr::C_User));
   	TheCompInst.getDiagnosticClient().BeginSourceFile(
 		TheCompInst.getLangOpts(), &TheCompInst.getPreprocessor());
-
+  	//fprintf(stderr,"Error %d\n",TheCompInst.getDiagnosticClient().getNumErrors());
 //	fprintf(stderr,"Mark1\n");
   // Create an AST consumer instance which is going to get called by
   // ParseAST.
-	MyASTConsumer TheConsumer(TheRewriter, SourceMgr, TheCompInst.getASTContext());
+	MyASTConsumer TheConsumer(TheRewriter, SourceMgr, TheCompInst.getASTContext(), TheCompInst);
+	TheConsumer.success = 1;
 
 //	fprintf(stderr,"Mark1\n");
   // Parse the file to AST, registering our consumer as the AST consumer.
 	ParseAST(TheCompInst.getPreprocessor(), &TheConsumer,
            TheCompInst.getASTContext());
 
+	fprintf(stderr,"Error %d\n",TheCompInst.getDiagnosticClient().getNumErrors());
+	if(TheConsumer.success == 0) return 1;
 //	fprintf(stderr,"Mark1\n");
   // At this point the rewriter's buffer should be full with the rewritten
   // file contents.

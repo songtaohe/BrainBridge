@@ -15,6 +15,15 @@ class UpdateCommand(sublime_plugin.TextCommand):
 		global wysiwyg_ticket
 		global wysiwyg_target_location
 		global wysiwyg_so_location
+		sourcelist = [line.rstrip('\n') for line in open('/ssd/BrainBridge/BrainBridge/data/sourcelist','r')]
+		print(sourcelist)
+
+		fileID = -1
+		for i in range(len(sourcelist)):
+			if sourcelist[i] == self.view.file_name():
+				wysiwyg_file_id = i
+
+
 		#self.view.insert(edit, 0, "Hello, World!")
 		print('Target File ',self.view.file_name())
 		pos = self.view.sel()[0]
