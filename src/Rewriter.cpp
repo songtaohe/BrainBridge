@@ -450,6 +450,7 @@ public:
 
 							str << paraList;
 							str << "){\n";
+							str << "WYSIWYG_Init();\n";
 							str << "/*WYSIWYG_" << tmpName.str() << "_START*/\n";
 							// Stmts
 							//for(Stmt ** tmpStmt = ModuleStart; tmpStmt <= ModuleEnd; tmpStmt++)
@@ -675,7 +676,15 @@ public:
 							// ***   Generate Decl 								  ***
 							//********************************************************
 							//if(functionCounter == 1) staticGlobalDump = locDump.getLocWithOffset(-1);
-							TheRewriter.InsertText((*globalDump), tag.str(),true,true);
+							//TheRewriter.InsertText((*globalDump), tag.str(),true,true);
+
+
+							std::stringstream ifstr;
+
+							ifstr << "if(strcmp(funcname,\"" << funcName << "\") == 0) ";
+							ifstr << "m" << funcName << "=(" << "PTR_" << funcName << ")func;\n";
+							TheRewriter.InsertText((*globalDump), ifstr.str(),true,true);
+
 
 						}		
 						ModuleStart = NULL;
@@ -822,6 +831,25 @@ public:
 			if(name == "android") 
 			{
 				ASTVistorModulizer::staticGlobalDump = (cast<NamespaceDecl>(d))->getRBraceLoc ().getLocWithOffset(-1);
+				std::ifstream mRuntime(RUNTIMENAME);
+				std::stringstream str;
+				std::string line;
+				while ( getline (mRuntime,line))
+    			{
+      				str << line << '\n';
+    			}
+    			TheRewriter.InsertText(ASTVistorModulizer::staticGlobalDump, str.str(),true,true);
+
+
+    			
+				
+
+				TheRewriter.InsertText((cast<NamespaceDecl>(d))->getRBraceLoc (), "}}",true,true);
+
+
+
+
+
 				return true; // Do not update!
 			}
 		}
@@ -1010,6 +1038,13 @@ private:
 			scopeEnd = lE;
 			init = 1;
 			globalDump = scopeStart.getLocWithOffset(-1);
+			
+			std::stringstream str2;
+    		str2 << "static void WYSIWYG_Init();\n";
+    		str2 << "#define WYSIWYG_FILEID " << RewriterFileID << "\n";
+    		str2 << "#define WYSIWYG_CMDFILE \"" << WYSIWYGCMDFILE << "\"\n";
+    		TheRewriter.InsertText(scopeStart, str2.str(),true,true);
+
 		}
 		else
 		{

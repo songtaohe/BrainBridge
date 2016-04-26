@@ -9,7 +9,10 @@ DATASET_NAME = "-D SOURCELISTNAME = \"$(shell pwd)/data/sourcelist\""
 DATASET_NAME += "-D MODULELISTNAME = \"$(shell pwd)/data/modulelist\"" 
 DATASET_NAME += "-D SCRIPTFOLDER = \"$(shell pwd)/data/script/\"" 
 DATASET_NAME += "-D SHAREDOBJFOLDER = \"$(shell pwd)/data/lib/\"" 
-DATASET_NAME += "-D DATAFOLDER = \"$(shell pwd)/data/\"" 
+DATASET_NAME += "-D DATAFOLDER = \"$(shell pwd)/data/\""
+DATASET_NAME += "-D RUNTIMENAME = \"$(shell pwd)/runtime/update.c\""
+DATASET_NAME += "-D WYSIWYGCMDFILE = \"undefined\""
+
 
 IndexServerSRC = src/IndexServer.cpp src/InfoManager.cpp
 CompilerWrapperSRC = src/CompilerClient.cpp
@@ -58,7 +61,7 @@ compilerWrapper.o: src/CompilerClient.cpp
 	$(CXX) -c -o compilerWrapper.o $(CFLAG) $(SOCKET_NAME) $(CompilerWrapperSRC)
 
 rewriter.o : src/Rewriter.cpp
-	$(CXX) src/Rewriter.cpp $(CXXFLAGS) $(LLVM_CXXFLAGS) -c -o rewriter.o $(CLANG_BUILD_FLAGS)	
+	$(CXX) src/Rewriter.cpp $(DATASET_NAME) $(CXXFLAGS) $(LLVM_CXXFLAGS) -c -o rewriter.o $(CLANG_BUILD_FLAGS)	
 
 
 
