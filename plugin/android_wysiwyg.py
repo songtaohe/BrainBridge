@@ -50,7 +50,7 @@ class UpdateCommand(sublime_plugin.TextCommand):
 				if code[i] == ("/*WYSIWYG_FILE" + str(wysiwyg_file_id) + "_FUNC" + str(moduleID) + "_END*/\n") :
 					chop = False
 				
-				if chop == False :
+				if chop == False and code[i] != "WYSIWYG_Init();\n" :
 					f.write(code[i])
 
 			f.close()
@@ -69,12 +69,12 @@ class UpdateCommand(sublime_plugin.TextCommand):
 
 
 			#Apply
-			mCmd = 'adb shell echo '
+			mCmd = 'adb shell \"echo '
 			mCmd = mCmd + str(wysiwyg_ticket) +' ' + str(wysiwyg_file_id) + ' '
 			mCmd = mCmd + wysiwyg_target_location + str(wysiwyg_file_id)+'_'+str(wysiwyg_ticket)+'.so '
 			mCmd = mCmd + 'FILE'+str(wysiwyg_file_id)+'_FUNC'+str(moduleID)
-			mCmd = mCmd + ' > '
-			mCmd = mCmd + wysiwyg_target_location + 'cmd'
+			mCmd = mCmd + '>'
+			mCmd = mCmd + wysiwyg_target_location + 'cmd\"'
 			print(mCmd + '\n')
 
 			os.system(mCmd)
