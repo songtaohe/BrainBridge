@@ -97,7 +97,7 @@ class EventDump(sublime_plugin.EventListener):
 		global wysiwyg_file_id
 		print('Target File ',view.file_name())
 		sourcelist = [line.rstrip('\n') for line in open('/ssd/BrainBridge/BrainBridge/data/sourcelist','r')]
-		print(sourcelist)
+		#print(sourcelist)
 
 		fileID = -1
 		for i in range(len(sourcelist)):
@@ -114,7 +114,7 @@ class EventDump(sublime_plugin.EventListener):
 		with open('/ssd/BrainBridge/BrainBridge/data/modulelist','r') as f:
 			modulelist = [[int(x) for x in line.split()] for line in f]
 
-		print(modulelist)
+		#print(modulelist)
 
 		for i in range(len(modulelist)):
 			if modulelist[i][0] == fileID :

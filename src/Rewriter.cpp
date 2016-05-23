@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include "clang/AST/ASTConsumer.h"
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
@@ -33,6 +34,10 @@ using namespace clang;
 
 static int globalOffset = 0;
 
+static int counter_private = 0;
+static int counter_this = 0;
+
+
 
 class ASTVistorGenFuncPara : public RecursiveASTVisitor<ASTVistorGenFuncPara> {
 public:
@@ -49,6 +54,7 @@ public:
 		{
 			if((cast<MemberExpr>(s))->getFoundDecl()->getAccess() == AS_private) 
 			{
+				counter_private ++;
 				//fprintf(stderr, "A private member\n");
 				IsValid = false;
 			}
@@ -215,6 +221,8 @@ public:
 
 		if (isa<CXXThisExpr>(s))
 		{
+			// TODO 
+			counter_this ++;
 			IsValid = false;
 		}
 
@@ -1077,6 +1085,8 @@ public:
   // Override the method that gets called for each parsed top-level
   // declaration.
   virtual bool HandleTopLevelDecl(DeclGroupRef DR) {
+
+	//TheCompInst.getASTContext().Idents.PrintStats();
   	//fprintf(stderr,"Error %d\n",TheCompInst.getDiagnosticClient().getNumErrors());
   	if(TheCompInst.getDiagnosticClient().getNumErrors() > 0)
   	{
@@ -1095,6 +1105,8 @@ public:
 	  		//(*b)->dumpColor();
 		}
 	}  //(*b)->dumpColor();
+
+
     return true;
   }
 public:
@@ -1305,6 +1317,31 @@ TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.ge
   // Parse the file to AST, registering our consumer as the AST consumer.
 	ParseAST(TheCompInst.getPreprocessor(), &TheConsumer,
            TheCompInst.getASTContext());
+
+	
+	fprintf(stderr,"\n\nident %p\n",&(TheCompInst.getASTContext().Idents));
+	TheCompInst.getASTContext().Idents.PrintStats();
+
+	int tc = 0;
+	for(IdentifierTable::iterator idinfo = TheCompInst.getASTContext().Idents.begin(); idinfo != TheCompInst.getASTContext().Idents.end() ; idinfo++)
+	{
+		DeclarationName DName = TheCompInst.getASTContext().DeclarationNames.getIdentifier((*idinfo).getValue());
+		if(DName.isEmpty() == false)
+		{
+			tc++;
+			//fprintf(stderr, "%d %s\n",tc,DName.getAsString().c_str());
+		}	
+
+	}
+
+
+	fprintf(stderr,"\n Counter Private MemberExpr %d\n", counter_private);
+	fprintf(stderr,"\n Counter This               %d\n", counter_this);
+	
+
+
+
+
 
 	fprintf(stderr,"Error %d\n",TheCompInst.getDiagnosticClient().getNumErrors());
 	if(TheConsumer.success == 0) return 1;
