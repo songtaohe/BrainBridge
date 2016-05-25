@@ -53,15 +53,18 @@ indexServer : $(IndexServerSRC) src/*.h
 	mkdir -p bin
 	$(CXX) -o bin/indexServer $(CFLAG) $(SOCKET_NAME) $(DATASET_NAME) $(IndexServerSRC)
 
-compilerWrapper : compilerWrapper.o rewriter.o
+compilerWrapper : compilerWrapper.o rewriter.o ContextWrapper.o
 	mkdir -p bin
-	$(CXX) -o bin/compilerWrapper compilerWrapper.o rewriter.o $(CFLAG) $(CXXFLAGS) $(LLVM_CXXFLAGS) $(CLANGLIBS) $(LLVM_LDFLAGS)
+	$(CXX) -o bin/compilerWrapper compilerWrapper.o rewriter.o ContextWrapper.o $(CFLAG) $(CXXFLAGS) $(LLVM_CXXFLAGS) $(CLANGLIBS) $(LLVM_LDFLAGS)
 
 compilerWrapper.o: src/CompilerClient.cpp
 	$(CXX) -c -o compilerWrapper.o $(CFLAG) $(SOCKET_NAME) $(CompilerWrapperSRC)
 
 rewriter.o : src/Rewriter.cpp
 	$(CXX) src/Rewriter.cpp $(DATASET_NAME) $(CXXFLAGS) $(LLVM_CXXFLAGS) -c -o rewriter.o $(CLANG_BUILD_FLAGS)	
+
+ContextWrapper.o : src/ContextWrapper.cpp
+	$(CXX) src/ContextWrapper.cpp $(DATASET_NAME) $(CXXFLAGS) $(LLVM_CXXFLAGS) -c -o ContextWrapper.o $(CLANG_BUILD_FLAGS)	
 
 
 

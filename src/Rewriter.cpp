@@ -27,6 +27,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "Rewriter.h"
+#include "ContextWrapper.h"
 
 using namespace clang;
 
@@ -223,7 +224,7 @@ public:
 		{
 			// TODO 
 			counter_this ++;
-			IsValid = false;
+			//IsValid = false;
 		}
 
 		if (isa<BreakStmt>(s))
@@ -436,6 +437,26 @@ public:
 							// Parameter List from mChecker
 							// Code dumped from moduleStart to moduleEnd
 
+
+							//********************************************************
+							// ***   Add Context Wrapper 						  ***
+							//********************************************************
+
+							Rewriter TempRewriter(TheSourceMgr, TheRewriter.getLangOpts());
+
+							ASTVistorAddContextWrapper mContextWrapper(TheSourceMgr, TempRewriter);
+
+
+							for(Stmt** moduleStmt = ModuleStart; moduleStmt <= ModuleEnd; moduleStmt ++ )
+							{
+								fprintf(stderr, "Add Wrapper\n");
+								mContextWrapper.TraverseStmt((*moduleStmt));	
+							}
+
+
+
+
+
 							std::stringstream str;
 							std::string funcName;
 							std::string paraList;
@@ -528,11 +549,14 @@ public:
 								&& fullLocEnd.getFileID() == TheSourceMgr.getMainFileID())
 							{
 	
+
+
+							//TheRewriter.InsertText(fullLocStart.getExpansionLoc().getLocWithOffset(1), "asdasdasdasd",true,true);
 							if(fullLocStart.getExpansionLoc().isValid() && fullLocEnd.getExpansionLoc().isValid())
 							{
 
 								fprintf(stderr, "From %s to %s\n",fullLocStart.getExpansionLoc().printToString(TheSourceMgr).c_str(),fullLocEnd.getExpansionLoc().printToString(TheSourceMgr).c_str());	
-								tmpCodeStr =  TheRewriter.getRewrittenText(SourceRange(fullLocStart.getExpansionLoc(), fullLocEnd.getExpansionLoc()));
+								tmpCodeStr =  TempRewriter.getRewrittenText(SourceRange(fullLocStart.getExpansionLoc(), fullLocEnd.getExpansionLoc()));
 								Rewriter::RewriteOptions rangeOpts;
 						        rangeOpts.IncludeInsertsAtBeginOfRange = false;
 								int offset = TheRewriter.getRangeSize(SourceRange(fullLocEnd.getExpansionLoc(),fullLocEnd.getExpansionLoc()), rangeOpts);
@@ -591,7 +615,7 @@ public:
 								if(i==0 && tmpCodeStrPtr[i] == '#') getrid = true;
 								if(tmpCodeStrPtr[i] == '\n') getrid = false;
 
-								if(getrid == false) str << tmpCodeStrPtr[i];
+								if(getrid == false) str << tmpCodeStrPtr[i]; // Extract Code to new Function
 							}
 							
 
@@ -878,6 +902,7 @@ public:
 	updateScope(f);
     // Only function definitions (with bodies), not declarations.
     if (f->hasBody()) {
+
       Stmt *FuncBody = f->getBody();
   		
 		if(isa<CompoundStmt>(FuncBody))
@@ -989,12 +1014,26 @@ public:
       DeclarationName DeclName = f->getNameInfo().getName();
       std::string FuncName = DeclName.getAsString();
      
-		if(strcmp("setUpHWComposer",FuncName.c_str()) == 0)
+		if(strcmp("function4",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
 
 
+		if(strcmp("function3",FuncName.c_str()) == 0)
+		{
+			f->dumpColor();	
+		}
+
+		if(strcmp("function2",FuncName.c_str()) == 0)
+		{
+			f->dumpColor();	
+		}
+
+		if(strcmp("function1",FuncName.c_str()) == 0)
+		{
+			f->dumpColor();	
+		}
  
       // Add comment before
       std::stringstream SSBefore;
@@ -1270,7 +1309,7 @@ TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.ge
 		}
 
 
-		msrc2 << std::string("#include \"/ssd/nexus6_lp/build/core/combo/include/arch/linux-arm/AndroidConfig.h\"");
+		//msrc2 << std::string("#include \"/ssd/nexus6_lp/build/core/combo/include/arch/linux-arm/AndroidConfig.h\"");
 		globalOffset ++;
 
 
