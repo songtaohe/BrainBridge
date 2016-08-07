@@ -295,6 +295,10 @@ int main(int argc, char** argv)
 	SendStringSync(socket_fd, argv[2], strlen(argv[2])); //Folder Path
 
 	fprintf(stderr, "\nCMD %s\n",argv[1]);
+	
+
+	
+
 	if(strcmp(argv[1],"/ssd/nexus6_lp/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.8/bin/arm-linux-androideabi-g++real") == 0)
 	{
 			fprintf(stderr, "\nCMD %s\n",argv[1]);
@@ -309,6 +313,22 @@ int main(int argc, char** argv)
 			IncludeDirCounter++;
 
 	}
+
+ if(strcmp(argv[1],"/ssd2/android/android6/prebuilts/clang/linux-x86/host/3.6/bin/clang++real") == 0)
+    {
+            fprintf(stderr, "\nCMD %s\n",argv[1]);
+            char mInclude[] = "prebuilts/clang/linux-x86/host/3.6/lib/clang/3.6/include";
+            sprintf(buf,"%s/%s",argv[2],mInclude);
+
+            IncludeDirType[IncludeDirCounter] = state;
+
+            IncludeDirStrList[IncludeDirCounter] = (char*)malloc(sizeof(char)*(strlen(mInclude)+strlen(argv[2])+2));
+            sprintf(IncludeDirStrList[IncludeDirCounter],"%s",buf);
+
+            IncludeDirCounter++;
+
+    }
+
 
 	for(int ind = 3; ind < argc; ind++)
     {
@@ -358,6 +378,15 @@ int main(int argc, char** argv)
 		{
 			SendStringSync(socket_fd, argv[ind], strlen(argv[ind]));
 		}
+
+		if(argv[ind][0] == '-' && argv[ind][1] == 'D')
+        {
+			continue; // Don't dump macro definiction. 
+		}
+
+
+
+
 		printf("%s ",argv[ind]);
 	}
 	SendStringSync(socket_fd, "-ldl -pthread", strlen("-ldl -pthread"));

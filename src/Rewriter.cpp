@@ -224,7 +224,8 @@ public:
 		{
 			// TODO 
 			counter_this ++;
-			//IsValid = false;
+			// TODO
+			IsValid = false;
 		}
 
 		if (isa<BreakStmt>(s))
@@ -450,7 +451,10 @@ public:
 							for(Stmt** moduleStmt = ModuleStart; moduleStmt <= ModuleEnd; moduleStmt ++ )
 							{
 								fprintf(stderr, "Add Wrapper\n");
-								mContextWrapper.TraverseStmt((*moduleStmt));	
+							// We currently could not support Context Wrapper, which is still 
+							// under development.
+							//	mContextWrapper.TraverseStmt((*moduleStmt));
+	
 							}
 
 
@@ -904,14 +908,21 @@ public:
     if (f->hasBody()) {
 
       Stmt *FuncBody = f->getBody();
-  		
+  	
 		if(isa<CompoundStmt>(FuncBody))
 		{
+			
+
+
 			//Start the modulizer !!! //TODO
 
 			// BlackList
 			 DeclarationName DeclName = f->getNameInfo().getName();
       		 std::string FuncName = DeclName.getAsString();
+			// TODO
+			if(strcmp("setPhaseOffset",FuncName.c_str()) !=0)
+			if(strcmp("dumpStaticScreenStats",FuncName.c_str()) !=0)
+			{
 
         	//if(strcmp("operator*",FuncName.c_str()) != 0 &&
 			//	strcmp("doLogFrameDurations",FuncName.c_str()) !=0)  //FIXME temperory fix for private member access
@@ -922,7 +933,7 @@ public:
 				//mModulizer.dStart = f->getSourceRange().getBegin();
 				//mModulizer.dEnd = f->getSourceRange().getEnd();
 				mModulizer.TraverseStmt(FuncBody); 
-			//}	
+			}	
 		}
 
 		int counter = 0;
@@ -1030,7 +1041,7 @@ public:
 			f->dumpColor();	
 		}
 
-		if(strcmp("function1",FuncName.c_str()) == 0)
+		if(strcmp("setUpHWComposer",FuncName.c_str()) == 0)
 		{
 			f->dumpColor();	
 		}
@@ -1308,8 +1319,9 @@ TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.ge
 			globalOffset ++;
 		}
 
-
-		//msrc2 << std::string("#include \"/ssd/nexus6_lp/build/core/combo/include/arch/linux-arm/AndroidConfig.h\"");
+		//msrc2 << std::string("#include \"/ssd2/android/android6/prebuilts/clang/linux-x86/host/3.6/lib/clang/3.6/include\"");
+		msrc2 << std::string("#include \"/ssd2/android/android6/build/core/combo/include/arch/target_linux-x86/AndroidConfig.h\"");
+		//msrc2 << std::string("#include \"/ssd2/android/android6/build/core/combo/include/arch/linux-arm/AndroidConfig.h\"");
 		globalOffset ++;
 
 
@@ -1399,8 +1411,9 @@ TheCompInst.getPreprocessor().getBuiltinInfo().initializeBuiltins(TheCompInst.ge
 	if(RewriteBuf != NULL) 
 	{
 		fprintf(stderr,"RewriteBuffer Size %d\n",RewriteBuf->size());
-		mout<< std::string("#include <cutils/log.h>\n");
+		//mout<< std::string("#include <cutils/log.h>\n");
 		mout<< std::string(RewriteBuf->begin(), RewriteBuf->end());
+		mout<< std::string("#include <cutils/log.h>\n");
 	}
 	else
 	{	  
